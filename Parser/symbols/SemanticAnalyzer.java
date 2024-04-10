@@ -40,12 +40,6 @@ public class SemanticAnalyzer implements AbsynVisitor {
         return symbolTable;
     }
 
-    // private void indent(int level) {
-    //     for (int i = 0; i < level; i++) {
-    //         System.out.print("    "); // Four spaces for each level of indentation
-    //     }
-    // }
-
     // Method to add an error message
     private void addSemanticError(Absyn node, String message) {
         int row = node.row; // Assuming row is zero-indexed
@@ -113,11 +107,7 @@ public void visit(Program program, int level, boolean isAddr) {
     public void visit(FunDec funDec, int level, boolean isAddr) {
         currentFunctionContext = funDec;
         currentFunctionName = funDec.funcName;
-        // Functions are already considered part of the global scope, so here we only handle the function's local scope
-        if (isInGlobalScope) {
-            // indent(level);
-            // appendLine("Visiting FunDec: " + currentFunctionName);
-        }
+        boolean global = isInGlobalScope;
 
         // First, check if the function is already declared in this scope
         NodeType existingFunc = symbolTable.lookup(funDec.funcName);
@@ -134,27 +124,34 @@ public void visit(Program program, int level, boolean isAddr) {
             funDec.result.accept(this, level + 1, isAddr);
         }
 
-        // Enter a new scope for the function's parameters and body
-        isInGlobalScope = false;    
-        symbolTable.enterScope(level + 1, currentFunctionName, false);
+        // Determine if there is a need to enter a new scope
+        boolean hasBodyOrParameters = funDec.body != null || funDec.params != null;
+        if (hasBodyOrParameters) {
+            // Enter a new scope for the function's parameters and body if either exists
+            // Do not increment the level here since we are not inside the function's body yet.
+            if (global) isInGlobalScope = false;            
+            symbolTable.enterScope(level, currentFunctionName, false);
+        }
 
         // Visit parameters, if any
         if (funDec.params != null) {
             funDec.params.accept(this, level + 1, isAddr);
         }
-
         // Visit the function body
         if (funDec.body != null) {
             funDec.body.accept(this, level + 1, isAddr);
         }
 
-        // Before leaving the function, clear the current function context
+        // Exit the scope for the function's parameters. 
+        // We only increment the level for entering/exiting the body within its own CompoundExp.
+        if (hasBodyOrParameters) {
+            // Exiting the function's scope after processing its body and parameters
+            if (global) isInGlobalScope = true;            
+            symbolTable.exitScope(level, true, false, currentFunctionName);
+        }        
+
         currentFunctionContext = null;
         currentFunctionName = null;
-
-        // Exit the function's local scope after processing its body and parameters
-        isInGlobalScope = true;    
-        symbolTable.exitScope(level + 1, true, false, funDec.funcName);
     }
 
     @Override
@@ -163,7 +160,7 @@ public void visit(Program program, int level, boolean isAddr) {
 
         // Check for void type variable declaration
         if (simpleDec.typ.typ == NameTy.VOID) {
-            indent(level);
+            //v indent(level);
             addSemanticError(simpleDec, "Variable cannot be declared as 'void'");            
             System.err.println("Semantic Error: Variable " + simpleDec.name + " cannot be declared as 'void'");
         }
@@ -173,7 +170,7 @@ public void visit(Program program, int level, boolean isAddr) {
         NodeType existing = symbolTable.lookup(simpleDec.name);
         if (existing != null && existing.level == level) {
             // Handle error: redeclaration of variable
-            indent(level);
+            //v indent(level);
             addSemanticError(simpleDec, "Variable " + simpleDec.name + " cannot be redeclared");            
             System.err.println("Semantic Error: Variable " + simpleDec.name + " is redeclared");
         } else {
@@ -187,13 +184,14 @@ public void visit(Program program, int level, boolean isAddr) {
             appendLine(simpleDec.name + ": " + typeStr);
         }
     }
+
     @Override
     public void visit(ArrayDec arrayDec, int level, boolean isAddr) {
-        indent(level);
+        //v indent(level);
         // appendLine("Visiting ArrayDec: " + arrayDec.name + "[]");
         // Check for void type array declaration
         if (arrayDec.typ.typ == NameTy.VOID) {
-            indent(level);
+            //v indent(level);
             addSemanticError(arrayDec, "Variable cannot be declared as 'void'");
             System.err.println("Semantic Error: Array " + arrayDec.name + " cannot be declared as 'void'");
             // Optionally, you can stop processing this declaration or the whole analysis.
@@ -203,7 +201,7 @@ public void visit(Program program, int level, boolean isAddr) {
         NodeType existing = symbolTable.lookup(arrayDec.name);
         if (existing != null && existing.level == level) {
             // Handle error: redeclaration of array variable
-            indent(level);
+            //v indent(level);
             addSemanticError(arrayDec, "Variable cannot be redeclared");            
             System.err.println("Semantic Error: Array " + arrayDec.name + " is redeclared");
         } else {
@@ -261,7 +259,7 @@ public void visit(Program program, int level, boolean isAddr) {
     @Override
     public void visit(CompoundExp compoundExp, int level, boolean isAddr) {
         // Enter a new scope for the compound statement
-        symbolTable.enterScope(level + 1, null, true);
+        symbolTable.enterScope(level, null, true);
 
         // Visit local declarations if there are any
         if (compoundExp.localDecs != null) {
@@ -286,7 +284,7 @@ public void visit(Program program, int level, boolean isAddr) {
         }
 
         // Exit the scope for the compound statement
-        symbolTable.exitScope(level + 1, false, true, null);
+        symbolTable.exitScope(level, false, true, null);
     }
 
     @Override
@@ -301,17 +299,17 @@ public void visit(Program program, int level, boolean isAddr) {
         // Visit the then clause
         if (ifExp.thenClause != null) {
             boolean isThenBlock = ifExp.thenClause instanceof CompoundExp;
-            symbolTable.enterScope(level + 1, null, isThenBlock);
+            symbolTable.enterScope(level, null, isThenBlock);
             ifExp.thenClause.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level + 1, false, isThenBlock, null);
+            symbolTable.exitScope(level, false, isThenBlock, null);
         }
 
         // And the else clause, if it exists
         if (ifExp.elseClause != null) {
             boolean isElseBlock = ifExp.elseClause instanceof CompoundExp;
-            symbolTable.enterScope(level + 1, null, isElseBlock);
+            symbolTable.enterScope(level, null, isElseBlock);
             ifExp.elseClause.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level + 1, false, isElseBlock, null);
+            symbolTable.exitScope(level, false, isElseBlock, null);
         }
     }
 
@@ -327,9 +325,9 @@ public void visit(Program program, int level, boolean isAddr) {
         // Visit the body of the loop
         if (!isNilOrNull(whileExp.test)) {
             boolean isBodyBlock = whileExp.body instanceof CompoundExp;
-            symbolTable.enterScope(level + 1, null, isBodyBlock);
+            symbolTable.enterScope(level, null, isBodyBlock);
             whileExp.body.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level + 1, false, isBodyBlock, currentFunctionName);
+            symbolTable.exitScope(level, false, isBodyBlock, currentFunctionName);
         }
     }
 
@@ -603,7 +601,7 @@ public void visit(Program program, int level, boolean isAddr) {
 
     @Override
     public void visit(CallExp callExp, int level, boolean isAddr) {
-        indent(level);
+        //v indent(level);
         //pSystem.out.println("Visiting CallExp");
 
         // Ensure the function is declared

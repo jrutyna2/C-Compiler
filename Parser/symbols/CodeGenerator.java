@@ -178,7 +178,11 @@ private void updateHighEmitLoc() {
         }
         // Function return or end
         emitComment("End of function: " + funDec.funcName);
-        if (funDec.funcName.equals("main")) {
+        if (!funDec.funcName.equals("main")) {
+            // Implement return mechanism for user-defined functions
+            // For example, jump back to the caller, handle stack frame clean-up
+            emitRM("LD", pc, -1, fp, "Return to caller");
+        } else {
             emitRO("HALT", 0, 0, 0, "End of program execution");
         }
     }
@@ -487,6 +491,19 @@ private void updateHighEmitLoc() {
         emitComment("CallExp: " + callExp.func);
 
         // Step 1: Evaluate arguments and store their results on the stack.
+        if (callExp.func.equals("input")) {
+            // Emit code for reading an integer value from standard input.
+            emitRO("IN", ac, 0, 0, "read integer value");
+            return; // Exit the method early as we don't need to handle arguments or jump to a function.
+        } else if (callExp.func.equals("output")) {
+            // Evaluate the single argument for output.
+            if (callExp.args != null) {
+                callExp.args.head.accept(this, level + 1, false);
+                emitRO("OUT", ac, 0, 0, "output integer value");
+            }
+            return; // Exit after handling output.
+        }
+                
         ExpList argList = callExp.args;
         int argCount = 0;
         while (argList != null && argList.head != null) {

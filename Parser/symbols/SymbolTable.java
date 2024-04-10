@@ -24,6 +24,7 @@ public class SymbolTable {
 
 public void enterScope(int level, String functionName, boolean isBlockScope) {
     this.scopes.push(new HashMap<>());
+    // builder.append(getIndent(level)).append("level = "+level+"\n");
     if (functionName != null) {
         // Function scope logic
         builder.append(getIndent(level)).append("Entering the scope for function ").append(functionName).append(":\n");
@@ -39,6 +40,7 @@ public void enterScope(int level, String functionName, boolean isBlockScope) {
 }
 
 public void exitScope(int level, boolean isFunctionScope, boolean isBlockScope, String functionName) {
+    // builder.append(getIndent(level)).append("level = "+level+"\n");
     if (!this.scopes.isEmpty()) {
         HashMap<String, NodeType> exitedScope = this.scopes.pop();
         allScopes.add(new HashMap<>(exitedScope));
