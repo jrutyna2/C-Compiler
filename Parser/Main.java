@@ -70,6 +70,7 @@ class Main {
             ErrorLogger.reportSemanticErrors();
             return null;
         }        
+        System.out.println(analyzer.toString());    // print Semantics Tree
         String symbolTableString = analyzer.getSymbolTable().toStringRepresentation();
         writeToFile(baseFileName + ".sym", symbolTableString);
         System.out.println("Semantic Analysis DONE - Symbol Table saved to " + baseFileName + ".sym");

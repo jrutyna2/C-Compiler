@@ -12,39 +12,80 @@ import absyn.*;
 public class SymbolTable {
     private Stack<HashMap<String, NodeType>> scopes;
     private List<HashMap<String, NodeType>> allScopes; // New list to store all scopes
+    private StringBuilder builder; // Add a StringBuilder reference
+    private int blockLevel = 0; // Tracks nested block levels
 
-    public SymbolTable() {
+    public SymbolTable(StringBuilder builder) {
+        this.builder = builder;
         this.scopes = new Stack<>();
         this.allScopes = new ArrayList<>(); // Initialize the list
-    }
-
-    public void enterScope(int level, String functionName) {
         this.scopes.push(new HashMap<>());
-        if (functionName != null) {
-            printIndented("Entering the scope for function " + functionName + " :", level);
-        } else {
-            //String scopeType = level == 0 ? "Entering the global scope:" : "Entering a new scope: ";
-            String scopeType = level == 0 ? "Entering the global scope:" : "";
-            printIndented(scopeType, level);
-        }
     }
 
-    public void exitScope(int level, boolean isFunctionScope) {
-        if (!this.scopes.isEmpty()) {
-            HashMap<String, NodeType> exitedScope = this.scopes.pop();
-            allScopes.add(new HashMap<>(exitedScope));
-            if (isFunctionScope) {
-                printIndented("Leaving the function scope.", level);
-            } else {
-                if (this.scopes.isEmpty()) {
-                    printIndented("Leaving the global scope.", level);
-                } 
-                // else {
-                //     printIndented("Exiting a scope: ", level);
-                // }
+public void enterScope(int level, String functionName, boolean isBlockScope) {
+    this.scopes.push(new HashMap<>());
+    if (functionName != null) {
+        // Function scope logic
+        builder.append(getIndent(level)).append("Entering the scope for function ").append(functionName).append(":\n");
+    } else if (isBlockScope) {
+        // Block scope logic
+        builder.append(getIndent(level)).append("Entering a new block:\n");
+        blockLevel++; // Increment block level if it's a block scope
+    } else {
+        // Global scope logic
+        String scopeType = level == 0 ? "Entering the global scope:\n" : "";
+        builder.append(getIndent(level)).append(scopeType);
+    }
+}
+
+public void exitScope(int level, boolean isFunctionScope, boolean isBlockScope, String functionName) {
+    if (!this.scopes.isEmpty()) {
+        HashMap<String, NodeType> exitedScope = this.scopes.pop();
+        allScopes.add(new HashMap<>(exitedScope));
+        if (isFunctionScope && functionName != null && !functionName.isEmpty()) {
+            builder.append(getIndent(level)).append("Leaving the scope for function ").append(functionName).append(":\n");
+        } else if (isBlockScope) {
+            builder.append(getIndent(level)).append("Leaving the block\n");
+            blockLevel--; // Decrement block level if leaving a block scope
+        } else {
+            if (this.scopes.size() == 1) {
+                builder.append(getIndent(level)).append("Leaving the global scope...\n");
             }
         }
     }
+}
+
+private String getIndent(int level) {
+    return "    ".repeat(Math.max(0, level)); // Returns a string of spaces for indentation
+}
+
+    // public void enterScope(int level, String functionName) {
+    //     this.scopes.push(new HashMap<>());
+    //     if (functionName != null) {
+    //         printIndented("Entering the scope for function " + functionName + ":", level);
+    //     } else {
+    //         //String scopeType = level == 0 ? "Entering the global scope:" : "Entering a new scope: ";
+    //         String scopeType = level == 0 ? "Entering the global scope:" : "";
+    //         printIndented(scopeType, level);
+    //     }
+    // }
+
+    // public void exitScope(int level, boolean isFunctionScope, String functionName) {
+    //     if (!this.scopes.isEmpty()) {
+    //         HashMap<String, NodeType> exitedScope = this.scopes.pop();
+    //         allScopes.add(new HashMap<>(exitedScope));
+    //         if (isFunctionScope && functionName != null && !functionName.isEmpty()) {
+    //             printIndented("Leaving the scope for function " + functionName + ":", level);
+    //         } else {//System.out.println(this.scopes.size());
+    //             if (this.scopes.size() == 1) {
+    //                 printIndented("Leaving the global scope...", level);
+    //             } 
+    //             // else {
+    //             //     printIndented("Exiting a scope: ", level);
+    //             // }
+    //         }
+    //     }
+    // }
 
     public void printSymbolImmediately(String name, NodeType nodeType, int level) { 
         String typeString = mapDecToSimpleType(nodeType.dec); // Assuming this method maps the node type to a string representation.
@@ -52,12 +93,13 @@ public class SymbolTable {
     }
 
     private void printIndented(String message, int level) {
+        StringBuilder indent = new StringBuilder();
         for (int i = 0; i < level; i++) {
-            System.out.print("    "); // Assuming 4 spaces per indentation level
+            indent.append("    "); // Assuming 4 spaces per indentation level
         }
-        System.out.println(message);
+        builder.append(indent).append(message).append("\n");
     }
-    
+
     // Insert a new NodeType into the current scope
     public void insert(String name, NodeType nodeType) {
         if (!this.scopes.isEmpty()) {

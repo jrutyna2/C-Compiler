@@ -36,9 +36,10 @@ rbsyn: cleansyn buildsyn
 
 buildsym: 
 	$(JAVAC) -cp $(CLASSPATH) -d $(BUILD) symbols/*.java
+	$(JAVAC) -cp $(CLASSPATH) -d $(BUILD) parser.java sym.java Lexer.java ShowTreeVisitor.java Scanner.java Main.java
 
-rbsyms: buildsym
-	@$(JAVA) -cp $(CLASSPATH) $(TESTDIR)/$(file).cm -s # Test with -s option: make rbsyms file=gcd
+rbsymc: buildsym
+	@$(JAVA) -cp $(CLASSPATH) Main $(TESTDIR)/$(file).cm -c # Test with -s option: make rbsymc file=gcd
 
 tsyna: rbsyn
 	@$(JAVA) -cp $(CLASSPATH) Main -a $(TESTDIR)/$(file).cm # Test with -a option: make tsyna
