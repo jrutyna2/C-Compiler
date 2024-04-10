@@ -81,7 +81,7 @@ public void visit(Program program, int level, boolean isAddr) {
     }
     
     // 5. Exit the nested scope to return to the global scope
-    // symbolTable.exitScope(level + 1, false, null);
+    // symbolTable.exitScope(level - 1, false, null);
 
     // Optional: Perform any global-scope specific finalizations here if needed
 
@@ -115,7 +115,7 @@ public void visit(Program program, int level, boolean isAddr) {
         currentFunctionName = funDec.funcName;
         // Functions are already considered part of the global scope, so here we only handle the function's local scope
         if (isInGlobalScope) {
-            indent(level);
+            // indent(level);
             // appendLine("Visiting FunDec: " + currentFunctionName);
         }
 
@@ -154,7 +154,7 @@ public void visit(Program program, int level, boolean isAddr) {
 
         // Exit the function's local scope after processing its body and parameters
         isInGlobalScope = true;    
-        symbolTable.exitScope(level + 1, true, false, funDec.funcName);
+        symbolTable.exitScope(level - 1, true, false, funDec.funcName);
     }
 
     @Override
@@ -228,8 +228,8 @@ public void visit(Program program, int level, boolean isAddr) {
 
     @Override
     public void visit(NilExp nilExp, int level, boolean isAddr) {
-        indent(level);
-        appendLine("Visiting NilExp");
+        //qindent(level);
+        //qappendLine("Visiting NilExp");
 
         // Semantic analysis for NilExp:
         // 1. Check if NilExp is in a valid context (if necessary).
@@ -240,8 +240,8 @@ public void visit(Program program, int level, boolean isAddr) {
     public void visit(VarDecList varDecList, int level, boolean isAddr) {
         while (varDecList != null) {
             if (varDecList.head != null) {
-                indent(level);
-                appendLine("Visiting VarDecList");
+                // indent(level);
+                // appendLine("Visiting VarDecList");
                 varDecList.head.accept(this, level, isAddr);
             }
             varDecList = varDecList.tail;
@@ -286,13 +286,13 @@ public void visit(Program program, int level, boolean isAddr) {
         }
 
         // Exit the scope for the compound statement
-        symbolTable.exitScope(level + 1, false, true, null);
+        symbolTable.exitScope(level - 1, false, true, null);
     }
 
     @Override
     public void visit(IfExp ifExp, int level, boolean isAddr) {
-        indent(level);
-        appendLine("Visiting IfExp");// //pSystem.out.println("Visiting IfExp");
+        //q indent(level);
+        //q appendLine("Visiting IfExp");// //pSystem.out.println("Visiting IfExp");
 
         if (!isNilOrNull(ifExp.test)) {
             ifExp.test.accept(this, level + 1, isAddr);
@@ -303,7 +303,7 @@ public void visit(Program program, int level, boolean isAddr) {
             boolean isThenBlock = ifExp.thenClause instanceof CompoundExp;
             symbolTable.enterScope(level + 1, null, isThenBlock);
             ifExp.thenClause.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level + 1, false, isThenBlock, null);
+            symbolTable.exitScope(level - 1, false, isThenBlock, null);
         }
 
         // And the else clause, if it exists
@@ -311,14 +311,14 @@ public void visit(Program program, int level, boolean isAddr) {
             boolean isElseBlock = ifExp.elseClause instanceof CompoundExp;
             symbolTable.enterScope(level + 1, null, isElseBlock);
             ifExp.elseClause.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level + 1, false, isElseBlock, null);
+            symbolTable.exitScope(level - 1, false, isElseBlock, null);
         }
     }
 
     @Override
     public void visit(WhileExp whileExp, int level, boolean isAddr) {
-        indent(level);
-        appendLine("Visiting WhileExp");
+        //qindent(level);
+        //qappendLine("Visiting WhileExp");
 
         if (!isNilOrNull(whileExp.test)) {
             whileExp.test.accept(this, level + 1, isAddr);
@@ -329,14 +329,14 @@ public void visit(Program program, int level, boolean isAddr) {
             boolean isBodyBlock = whileExp.body instanceof CompoundExp;
             symbolTable.enterScope(level + 1, null, isBodyBlock);
             whileExp.body.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level + 1, false, isBodyBlock, currentFunctionName);
+            symbolTable.exitScope(level - 1, false, isBodyBlock, currentFunctionName);
         }
     }
 
     @Override
     public void visit(ReturnExp returnExp, int level, boolean isAddr) {
-        indent(level);
-        appendLine("Visiting ReturnExp");
+        //qindent(level);
+        //qappendLine("Visiting ReturnExp");
 
         // Check if there's an expression being returned
         if (returnExp.exp != null) {
@@ -392,8 +392,8 @@ public void visit(Program program, int level, boolean isAddr) {
 
     @Override
     public void visit(VarExp varExp, int level, boolean isAddr) {
-        indent(level);
-        appendLine("Visiting VarExp: " + varExp.variable.getName());
+        //qindent(level);
+        //qappendLine("Visiting VarExp: " + varExp.variable.getName());
 
         // Check if the variable has been declared by looking it up in the symbol table
         NodeType nodeType = symbolTable.lookup(varExp.variable.getName());
@@ -428,8 +428,8 @@ public void visit(Program program, int level, boolean isAddr) {
 
     @Override
     public void visit(SimpleVar simpleVar, int level, boolean isAddr) {
-        indent(level);
-        appendLine("Visiting SimpleVar: " + simpleVar.getName());
+        //qindent(level);
+        //qappendLine("Visiting SimpleVar: " + simpleVar.getName());
 //pSystem.out.println("Visiting SimpleVar: " + simpleVar.getName());
         // Look up the variable in the symbol table to see if it's been declared
         NodeType nodeType = symbolTable.lookup(simpleVar.getName());
@@ -444,8 +444,8 @@ public void visit(Program program, int level, boolean isAddr) {
 
     @Override
     public void visit(IndexVar indexVar, int level, boolean isAddr) {
-        indent(level);
-        appendLine("Visiting IndexVar: " + indexVar.getName());
+        //qindent(level);
+        //qappendLine("Visiting IndexVar: " + indexVar.getName());
 
         // First, ensure the variable itself is declared and is an array
         NodeType nodeType = symbolTable.lookup(indexVar.getName());
@@ -470,8 +470,8 @@ public void visit(Program program, int level, boolean isAddr) {
 
     @Override
     public void visit(OpExp opExp, int level, boolean isAddr) {
-        indent(level);
-        appendLine("Visiting OpExp");
+        //qindent(level);
+        //qappendLine("Visiting OpExp");
 //pSystem.out.println("\nVisiting OpExp: " + opExp.toString());
 //pSystem.out.println("left: " + opExp.left.toString());
 //pSystem.out.println("right: " + opExp.right.toString());
