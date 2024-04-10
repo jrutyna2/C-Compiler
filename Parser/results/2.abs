@@ -1,0 +1,26 @@
+Program
+  FunctionDec: main, Return type: void
+    CompoundExp:
+        SimpleDec: result
+          Type: INT
+        SimpleDec: b
+          Type: INT
+        SimpleDec: a
+          Type: INT
+        AssignExp:
+          VarExp:
+            SimpleVar: result
+          OpExp: +
+            VarExp:
+              SimpleVar: a
+            VarExp:
+              SimpleVar: b
+        AssignExp:
+          VarExp:
+            SimpleVar: b
+          IntExp: 10
+        AssignExp:
+          VarExp:
+            SimpleVar: a
+          IntExp: 5
+

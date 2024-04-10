@@ -1,0 +1,50 @@
+Program
+  SimpleDec: y
+    Type: INT
+  FunctionDec: gcd, Return type: int
+      SimpleDec: v
+        Type: INT
+      SimpleDec: u
+        Type: INT
+    CompoundExp:
+        IfExp:
+          OpExp: ==
+            VarExp:
+              SimpleVar: v
+            IntExp: 0
+          ReturnExp: VarExp:
+            SimpleVar: u
+          ReturnExp: CallExp: Function call to gcd with arguments:
+            OpExp: -
+              VarExp:
+                SimpleVar: u
+              OpExp: *
+                OpExp: /
+                  VarExp:
+                    SimpleVar: u
+                  VarExp:
+                    SimpleVar: v
+                VarExp:
+                  SimpleVar: v
+            VarExp:
+              SimpleVar: v
+  FunctionDec: main, Return type: void
+    CompoundExp:
+        SimpleDec: x
+          Type: INT
+        CallExp: Function call to output with arguments:
+          CallExp: Function call to gcd with arguments:
+            VarExp:
+              SimpleVar: y
+            VarExp:
+              SimpleVar: x
+        AssignExp:
+          VarExp:
+            SimpleVar: y
+          IntExp: 10
+        AssignExp:
+          VarExp:
+            SimpleVar: x
+          CallExp: Function call to input with arguments:
+            [no arguments]
+

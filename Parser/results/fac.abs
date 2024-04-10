@@ -1,0 +1,41 @@
+Program
+  FunctionDec: main, Return type: void
+    CompoundExp:
+        SimpleDec: fac
+          Type: INT
+        SimpleDec: x
+          Type: INT
+        CallExp: Function call to output with arguments:
+          VarExp:
+            SimpleVar: fac
+        WhileExp:
+          OpExp: >
+            VarExp:
+              SimpleVar: x
+            IntExp: 1
+          CompoundExp:
+              AssignExp:
+                VarExp:
+                  SimpleVar: x
+                OpExp: -
+                  VarExp:
+                    SimpleVar: x
+                  IntExp: 1
+              AssignExp:
+                VarExp:
+                  SimpleVar: fac
+                OpExp: *
+                  VarExp:
+                    SimpleVar: fac
+                  VarExp:
+                    SimpleVar: x
+        AssignExp:
+          VarExp:
+            SimpleVar: fac
+          IntExp: 1
+        AssignExp:
+          VarExp:
+            SimpleVar: x
+          CallExp: Function call to input with arguments:
+            [no arguments]
+

@@ -1,0 +1,16 @@
+.DS_Store
+*.class
+*.sh
+Parser/TODO.txt
+Parser/Lexer.java
+Parser/parser.java
+Parser/sym.java
+ErrorNode.java
+test/
+symbols/classes/
+build/
+utils/classes/
+absyn/classes/
+C3/
+info/symbols/
+.vscode

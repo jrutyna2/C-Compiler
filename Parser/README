@@ -1,0 +1,9 @@
+if project is built use: test, 
+if need rebuild: retest,
+
+to test 1.cm with:
+parser only:
+make retesta FILE=1
+
+parser & semantic:
+make retests FILE=1

@@ -1,0 +1,92 @@
+[Absyn]
+public class Absyn
+    public Absyn(int row, int col)
+public class DecList extends Absyn
+    public DecList(Dec head, DecList tail)
+public class ExpList extends Absyn
+    public ExpList(Exp head, ExpList tail)
+public class NameTy extends Absyn
+    public NameTy(int row, int col, int typ)
+public class Program extends Absyn
+    public Program(int row, int col, DecList declarations)
+public class VarDecList extends Absyn
+    public VarDecList(VarDec head, VarDecList tail)
+
+[Exp]
+public abstract class Exp extends Absyn
+    public Exp(int row, int col)
+public class AssignExp extends Exp
+    public AssignExp(int row, int col, VarExp lhs, Exp rhs)
+public class BoolExp extends Exp
+    public BoolExp(int row, int col, boolean value)
+public class CallExp extends Exp
+    public CallExp(int row, int col, String func, ExpList args)
+public class CompoundExp extends Exp
+    public CompoundExp(int row, int col, VarDecList localDecs, ExpList stmtList)
+public class IfExp extends Exp
+    public IfExp(int row, int col, Exp test, Exp thenClause, Exp elseClause)
+public class IntExp extends Exp
+    public IntExp(int row, int col, int value)
+public class NilExp extends Exp
+    public NilExp(int row, int col)
+public class OpExp extends Exp
+    public OpExp(int row, int col, Exp left, int op, Exp right)
+public class ReturnExp extends Exp
+    public ReturnExp(int row, int col, Exp exp)
+public class VarExp extends Exp
+    public VarExp(int row, int col, Var variable)
+public class WhileExp extends Exp
+    public WhileExp(int row, int col, Exp test, Exp body)
+
+[Dec]
+public abstract class Dec extends Absyn
+    public Dec(int row, int col)
+public class ErrorDec extends Dec
+    public ErrorDec(int row, int col, String errorMessage)
+public class FunDec extends Dec
+    public FunDec(int row, int col, NameTy result, String funcName, VarDecList params, Exp body)
+
+[VarDec]
+abstract public class VarDec extends Dec
+    public VarDec(int row, int col, NameTy typ, String name)
+public class ArrayDec extends VarDec
+    public ArrayDec(int row, int col, NameTy typ, String name, int size)
+public class SimpleDec extends VarDec
+    public SimpleDec(int row, int col, NameTy typ, String name)
+
+[Var]
+abstract public class Var extends Absyn
+    public Var(int row, int col, String name)
+public class SimpleVar extends Var
+    public SimpleVar(int row, int col, String name)
+public class IndexVar extends Var
+    public IndexVar(int row, int col, String name, Exp index)
+
+OTHER
+=== AbsynVisitor.java ===
+package absyn;
+public interface AbsynVisitor {
+    // Abstract Syntax Tree classes visit methods
+    public void visit(ErrorDec errorDec, int level);
+    public void visit(Program program, int level);
+    public void visit(DecList decList, int level);
+    public void visit(SimpleDec simpleDec, int level);
+    public void visit(ArrayDec arrayDec, int level);
+    public void visit(NameTy nameTy, int level);
+    public void visit(FunDec funDec, int level);
+    public void visit(NilExp nilExp, int level);
+    public void visit(VarDecList varDecList, int level);
+    public void visit(ExpList expList, int level);
+    public void visit(CompoundExp compoundExp, int level);
+    public void visit(IfExp ifExp, int level);
+    public void visit(WhileExp whileExp, int level);
+    public void visit(ReturnExp returnExp, int level);
+    public void visit(VarExp varExp, int level);
+    public void visit(AssignExp assignExp, int level);
+    public void visit(SimpleVar simpleVar, int level);
+    public void visit(IndexVar indexVar, int level);
+    public void visit(OpExp opExp, int level);
+    public void visit(IntExp intExp, int level);
+    public void visit(BoolExp boolExp, int level);
+    public void visit(CallExp callExp, int level);
+}

@@ -1,0 +1,56 @@
+CIS*4650 (Winter 2024) Compilers
+
+Specification for the C- Language
+C- is a simplified C programming language with some advanced features removed so that we can build a working compiler within one semester time. In the following, we describe the lexical conventions, the syntactic rules, and the semantic requirements of the C- language. We also provide several sample C- programs that can be used to test its implementation process.
+
+Lexical Conventions
+(1) The C- language contains the following keywords:
+bool, else, if, int, return, void, while and two literals: false and true. All of them are reserved and must be written in lowercases.
+
+(2) Special symbols are the following:
++ - * / < <= > >= == != ~, ||, &&, = ; , ( ) [ ] {}
+Other tokens are ID, NUM and TRUTH defined by the following regular expressions: ID = [_a-zA-Z][_a-zA-Z0-9]*
+NUM = [0-9]+
+TRUTH = false | true
+(3) White space consists of blanks, tabs, and newlines. White space is ignored expect that it must be used to separate ID’s, NUM’s, and other tokens.
+(4) Comments are surrounded by the usual C style notations /* ... */. They can be placed anywhere white space can appear (e.g., comments cannot be placed within tokens) and may include more than one line. Comments may not be nested.
+
+Syntactic Rules in BNF
+Listed below are the recommended syntactic rules for the C- language. Some rules as in (12) and (13) contain an empty clause, which corresponds to an e-production in the grammar. In addition, some clauses are shown in red, indicating that instances of NilExp are likely needed to build the corresponding nodes of their syntax trees in the implementation of a parser for our compiler project.
+(1) <program> -> <declaration-list>
+(2) <declaration-list> -> <declaration-list> <declaration> | <declaration>
+(3) <declaration> -> <var-declaration> | <fun-declaration> | <fun-prototype>
+(4) <var-declaration> -> <type-specifier> ID ; | <type-specifier> ID [ NUM ] ;
+(5) <type-specifier> -> bool | int | void
+(6) <fun-declaration> -> <type-specifier> ID ( <params> ) <compound- stmt>
+(7) <fun-prototype> -> <type-specifier> ID ( <params> ) ;
+(8) <params> -> <param-list> | void
+(9) <param-list> -> <param-list> , <param> | <param>
+(10) <param> -> <type-specifier> ID | <type-specifier> ID [ ]
+(11) <compound-stmt> -> { <local-declarations> <statement-list> }
+(12) <local-declarations> -> <local-declarations> <var-declaration> |
+(13) <statement-list> -> <statement-list> <statement> |
+(14) <statement> -> <expression-stmt> | <compound-stmt> | <selection-stmt> | <iteration-stmt>| <return-stmt>
+(15) <expression-stmt> -> <expression> ; | ;
+(16) <selection-stmt> -> if ( <expression> ) <statement> | if ( <expression> ) <statement> else <statement>
+(17) <iteration-stmt> -> while ( <expression> ) <statement>
+(18) <return-stmt> -> return <expression> ; | return ;
+(19) <expression> -> <var> = <expression> | <obool-expression>
+(20) <var> -> ID | ID [ <expression> ]
+(21) <obool-expression> -> <obool-expression> || <abool-expression> | <abool-expression>
+(22) <abool-expression> -> <abool-expression> && <ubool-expression> | <ubool-expression>
+(23) <ubool-expression> -> ~ <ubool-expression> | <simple-expression>
+(24) <simple-expression> -> <additive-expression> <relop> <additive-expression> | <additive-expression>
+(25) <relop> -> <= | < | > | >= | == | !=
+(26) <additive-expression> -> <additive-expression> <addop> <term>| <term>
+(27) <addop> -> + | -
+(28) <term> -> <term> <mulop> <signed-factor> | <signed-factor>
+(29) <mulop> -> * | /
+(30) <signed-factor> -> - <signed-factor> | <factor>
+(31) <factor> -> ( <expression> ) | <var> | <call> | NUM | TRUTH
+(32) <call> -> ID ( <args> )
+(33) <args> -> <arg-list> |
+(34) <arg-list> -> <arg-list> , <expression> | <expression>
+
+Semantic Requirements
+During the semantic analysis, we should enforce that all variables and functions are defined before they are used in a program and the last declaration should be the “void main(void)” function. For parameter passing, we will do pass-by-value for integer and boolean parameters and pass-by-reference for array parameters. Functions can be recursive, including mutual recursions. For input and output purposes, we assume two predefined functions in the global environment with the following interfaces: “int input(void) {...}” and “void output(int x) {...}”. Note that “void” can’t be used to declare variables such as “void x” and “void y[10]” since it is only used to specify the return or parameter type of a function, as shown in the interfaces for “input” and “output” above. Also note that we will follow the common scoping rules for variable definitions and accesses in that an inner scope can see the definitions in the outer scopes in the order of inside-out direction, but not the other way around. Finally, for simplicity, functions are distinguished by their names only so that if “void foo()” is already defined, “void foo(int x)” is considered as a redefinition.

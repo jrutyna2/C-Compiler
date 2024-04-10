@@ -1,0 +1,16 @@
+Scope level: 0
+
+Scope level: 1
+
+Scope level: 2
+    x: int
+    fac: int
+
+Scope level: 3
+
+Scope level: 4
+    output: void
+    input: int
+    main: void
+
+

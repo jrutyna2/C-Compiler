@@ -1,0 +1,9 @@
+void testFunc(void) { }
+
+void main(void) {
+    if (testFunc()) { } // Error: 'testFunc' returns void, expected int or bool
+    while (x) {
+      void y;
+      y = x;
+    }
+}

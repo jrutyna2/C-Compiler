@@ -1,0 +1,433 @@
+jrutyna@linux-04:~/4650/C2/C3/Parser$ make talls TESTDIR=test/ifwhile
+for file in test/ifwhile/*.cm; do \
+        echo Running $file; \
+        java -cp /usr/share/java/cup.jar:.:./absyn/classes:./build:./symbols/classes:./utils/classes Main -s $file; \
+        echo; \
+done
+Running test/ifwhile/test1.cm
+Starting the parser...
+Reading file: test/ifwhile/test1.cm
+
+*********************************************************************
+Testing [test/ifwhile/test1.cm]:*****
+*************************
+void main(void) {
+    while (x) { } // Error: 'x' is not declared
+}
+*********************************************************************
+
+
+The abstract syntax tree is:
+Program
+    FunctionDec: main, Return type: void
+        CompoundExp:
+                WhileExp:
+                    VarExp:
+                        SimpleVar: x
+                    CompoundExp:
+
+Performing semantic analysis...
+Entering the global scope:
+    Entering the scope for function main :
+
+                    Visiting WhileExp
+                        Visiting VarExp: x
+Error in row 2, col 12: Variable x not declared.
+
+***** areTypesCompatible(NameTy expected, Exp actual) *****
+***** actual.getType() instanceof NEITHER *****
+        *** NameTy: BOOL        Exp: SimpleVar: x *****
+        *** NameTy: 0   Exp: SimpleVar: x *****
+        *** actual instanceof OTHER *****
+Error in row 2, col 12: The test condition of the while statement must be boolean or int
+
+
+                                Visiting NilExp
+        Leaving the function scope.
+Leaving the global scope.
+main:void
+
+
+
+Semantic error(s) detected.. Terminating Compilation.
+___________________________________________________
+Semantic Errors:
+Error in row 2, col 12: Variable x not declared.
+Error in row 2, col 12: The test condition of the while statement must be boolean or int
+
+Running test/ifwhile/test2.cm
+Starting the parser...
+Reading file: test/ifwhile/test2.cm
+
+*********************************************************************
+Testing [test/ifwhile/test2.cm]:*****
+*************************
+void testFunc(void) { }
+
+void main(void) {
+    if (testFunc()) { } // Error: 'testFunc' returns void, expected int or bool
+}
+*********************************************************************
+
+
+The abstract syntax tree is:
+Program
+    FunctionDec: testFunc, Return type: void
+        CompoundExp:
+    FunctionDec: main, Return type: void
+        CompoundExp:
+                IfExp:
+                    CallExp: Function call to testFunc with arguments:
+                        [no arguments]
+                    CompoundExp:
+
+Performing semantic analysis...
+Entering the global scope:
+    Entering the scope for function testFunc :
+
+                    Visiting NilExp
+        Leaving the function scope.
+    Entering the scope for function main :
+
+                    Visiting IfExp
+                        CallExp: testFunc
+
+***** areTypesCompatible(NameTy expected, Exp actual) *****
+***** actual.getType() instanceof NEITHER *****
+        *** NameTy: BOOL        Exp: testFunc() *****
+        *** NameTy: 0   Exp: testFunc() *****
+        *** actual instanceof OTHER *****
+Error in row 4, col 9: The test condition of the if statement must be boolean or int
+
+
+                                Visiting NilExp
+
+                        Visiting NilExp
+        Leaving the function scope.
+Leaving the global scope.
+testFunc:void
+main:void
+
+
+
+Semantic error(s) detected.. Terminating Compilation.
+___________________________________________________
+Semantic Errors:
+Error in row 4, col 9: The test condition of the if statement must be boolean or int
+
+Running test/ifwhile/test3.cm
+Starting the parser...
+Reading file: test/ifwhile/test3.cm
+
+*********************************************************************
+Testing [test/ifwhile/test3.cm]:*****
+*************************
+void main(void) {
+    int array[10];
+    if (array) { } // Error: 'array' is an int array, expected int or bool
+}
+*********************************************************************
+
+
+The abstract syntax tree is:
+Program
+    FunctionDec: main, Return type: void
+        CompoundExp:
+                ArrayDec: array[10]
+                    Type: INT
+                IfExp:
+                    VarExp:
+                        SimpleVar: array
+                    CompoundExp:
+
+Performing semantic analysis...
+Entering the global scope:
+    Entering the scope for function main :
+
+                                        Visiting IfExp
+                        Visiting VarExp: array
+
+***** areTypesCompatible(NameTy expected, Exp actual) *****
+***** actual.getType() instanceof VarDec: array *****
+        *** NameTy: BOOL        Exp: 1 *****
+Error in row 3, col 9: The test condition of the if statement must be boolean or int
+
+
+                                Visiting NilExp
+
+                        Visiting NilExp
+        Leaving the function scope.
+Leaving the global scope.
+array:unknown
+main:void
+
+
+
+Semantic error(s) detected.. Terminating Compilation.
+___________________________________________________
+Semantic Errors:
+Error in row 3, col 9: The test condition of the if statement must be boolean or int
+
+Running test/ifwhile/test4.cm
+Starting the parser...
+Reading file: test/ifwhile/test4.cm
+
+*********************************************************************
+Testing [test/ifwhile/test4.cm]:*****
+*************************
+void main(void) {
+    int a;
+    while (a < ) { } // Syntax error, but also type checking error if it were to parse
+}
+*********************************************************************
+
+Error in line 3, column 16 : Syntax error
+instead expected token classes are [MINUS, LPAREN, NUM, ID, TRUTH]
+Error in line 3, column 16 : Couldn't repair and continue parse
+
+Running test/ifwhile/test5.cm
+Starting the parser...
+Reading file: test/ifwhile/test5.cm
+
+*********************************************************************
+Testing [test/ifwhile/test5.cm]:*****
+*************************
+void main(void) {
+    if (string) { } // Error: Strings are not valid test expressions in C-
+}
+*********************************************************************
+
+
+The abstract syntax tree is:
+Program
+    FunctionDec: main, Return type: void
+        CompoundExp:
+                IfExp:
+                    VarExp:
+                        SimpleVar: string
+                    CompoundExp:
+
+Performing semantic analysis...
+Entering the global scope:
+    Entering the scope for function main :
+
+                    Visiting IfExp
+                        Visiting VarExp: string
+Error in row 2, col 9: Variable string not declared.
+
+***** areTypesCompatible(NameTy expected, Exp actual) *****
+***** actual.getType() instanceof NEITHER *****
+        *** NameTy: BOOL        Exp: SimpleVar: string *****
+        *** NameTy: 0   Exp: SimpleVar: string *****
+        *** actual instanceof OTHER *****
+Error in row 2, col 9: The test condition of the if statement must be boolean or int
+
+
+                                Visiting NilExp
+
+                        Visiting NilExp
+        Leaving the function scope.
+Leaving the global scope.
+main:void
+
+
+
+Semantic error(s) detected.. Terminating Compilation.
+___________________________________________________
+Semantic Errors:
+Error in row 2, col 9: Variable string not declared.
+Error in row 2, col 9: The test condition of the if statement must be boolean or int
+
+Running test/ifwhile/test6.cm
+Starting the parser...
+Reading file: test/ifwhile/test6.cm
+
+*********************************************************************
+Testing [test/ifwhile/test6.cm]:*****
+*************************
+void main(void) {
+    int a;
+    a = 1;
+    if (a) { } // Valid: 'a' is int
+
+    int b;
+    b = 0;
+    while (b) { } // Valid: 'b' is int
+
+    if (1) { } // Valid: direct int
+    if (true) { } // Valid: direct bool
+}
+*********************************************************************
+
+Error in line 6, column 5 : Syntax error
+instead expected token classes are [WHILE, MINUS, SEMI, LPAREN, LBRACE, RBRACE, NUM, ID, TRUTH, NOT, ELSE, RETURN]
+Error in line 6, column 5 : Couldn't repair and continue parse
+
+jrutyna@linux-04:~/4650/C2/C3/Parser$ make talls TESTDIR=test/arrayindex
+for file in test/arrayindex/*.cm; do \
+        echo Running $file; \
+        java -cp /usr/share/java/cup.jar:.:./absyn/classes:./build:./symbols/classes:./utils/classes Main -s $file; \
+        echo; \
+done
+Running test/arrayindex/1.cm
+Starting the parser...
+Reading file: test/arrayindex/1.cm
+
+*********************************************************************
+Testing [test/arrayindex/1.cm]:*****
+*************************
+void main(void) {
+  int x;
+  bool b;
+  int array[];
+  // bool array[];
+  int array[true];
+  int array[4];
+  bool array[4];
+  while (x) {
+
+  }
+}
+*********************************************************************
+
+Error in line 4, column 13 : Syntax error
+instead expected token classes are []
+Error : 3:6 VarDeclaration: error: invalid array size in 'array'
+Error in line 6, column 13 : Syntax error
+instead expected token classes are [error, NUM]
+Error : 5:6 VarDeclaration: error: invalid array size in 'array'
+
+The abstract syntax tree is:
+Program
+    FunctionDec: main, Return type: void
+        CompoundExp:
+                ArrayDec: array[4]
+                    Type: BOOL
+                ArrayDec: array[4]
+                    Type: INT
+                SimpleDec: b
+                    Type: BOOL
+                SimpleDec: x
+                    Type: INT
+                WhileExp:
+                    VarExp:
+                        SimpleVar: x
+                    CompoundExp:
+
+
+Syntax error(s) detected.. Skipping semantic analysis.
+___________________________________________________
+Syntax Errors:
+Error in row 3, col 6: 3:6 VarDeclaration: error: invalid array size in 'array'
+Error in row 5, col 6: 5:6 VarDeclaration: error: invalid array size in 'array'
+
+jrutyna@linux-04:~/4650/C2/C3/Parser$ make talls TESTDIR=test/opexp
+for file in test/opexp/*.cm; do \
+        echo Running $file; \
+        java -cp /usr/share/java/cup.jar:.:./absyn/classes:./build:./symbols/classes:./utils/classes Main -s $file; \
+        echo; \
+done
+Running test/opexp/test1.cm
+Starting the parser...
+Reading file: test/opexp/test1.cm
+
+*********************************************************************
+Testing [test/opexp/test1.cm]:*****
+*************************
+void main(void) {
+    int a;
+    a = 0;
+    bool b;
+    b = true;
+    a = a + b; // Error: Arithmetic operation with non-integer operand
+}
+*********************************************************************
+
+Error in line 4, column 5 : Syntax error
+instead expected token classes are [WHILE, MINUS, SEMI, LPAREN, LBRACE, RBRACE, NUM, ID, TRUTH, NOT, RETURN]
+Error in line 4, column 5 : Couldn't repair and continue parse
+
+Running test/opexp/test2.cm
+Starting the parser...
+Reading file: test/opexp/test2.cm
+
+*********************************************************************
+Testing [test/opexp/test2.cm]:*****
+*************************
+void main(void) {
+    int a;
+    a = 0;
+    int c;
+    c = a && 10; // Error: Logical operation on non-boolean operands
+}
+*********************************************************************
+
+Error in line 4, column 5 : Syntax error
+instead expected token classes are [WHILE, MINUS, SEMI, LPAREN, LBRACE, RBRACE, NUM, ID, TRUTH, NOT, RETURN]
+Error in line 4, column 5 : Couldn't repair and continue parse
+
+Running test/opexp/test3.cm
+Starting the parser...
+Reading file: test/opexp/test3.cm
+
+*********************************************************************
+Testing [test/opexp/test3.cm]:*****
+*************************
+void main(void) {
+    int a;
+    a = 5;
+    bool b;
+    b = false;
+    if (a == b) { } // Error: Comparing different types
+}
+*********************************************************************
+
+Error in line 4, column 5 : Syntax error
+instead expected token classes are [WHILE, MINUS, SEMI, LPAREN, LBRACE, RBRACE, NUM, ID, TRUTH, NOT, RETURN]
+Error in line 4, column 5 : Couldn't repair and continue parse
+
+Running test/opexp/test4.cm
+Starting the parser...
+Reading file: test/opexp/test4.cm
+
+*********************************************************************
+Testing [test/opexp/test4.cm]:*****
+*************************
+void main(void) {
+    bool b;
+    b = true;
+    b = -b; // Error: Unary minus on a boolean
+}
+*********************************************************************
+
+java.lang.ClassCastException: class absyn.SimpleVar cannot be cast to class absyn.Exp (absyn.SimpleVar and absyn.Exp are in unnamed module of loader 'app')
+        at parser$CUP$parser$actions.CUP$parser$do_action_part00000000(parser.java:1574)
+        at parser$CUP$parser$actions.CUP$parser$do_action(parser.java:1772)
+        at parser.do_action(parser.java:365)
+        at java_cup.runtime.lr_parser.parse(lr_parser.java:699)
+        at Main.main(Main.java:62)
+
+Running test/opexp/test5.cm
+Starting the parser...
+Reading file: test/opexp/test5.cm
+
+*********************************************************************
+Testing [test/opexp/test5.cm]:*****
+*************************
+void main(void) {
+    int a;
+    a = 0;
+    int b;
+    b = a + 10; // Valid: Addition of integers
+
+    bool c;
+    c = true;
+    if (!c) { } // Valid: Logical NOT on a boolean
+}
+*********************************************************************
+
+Error in line 4, column 5 : Syntax error
+instead expected token classes are [WHILE, MINUS, SEMI, LPAREN, LBRACE, RBRACE, NUM, ID, TRUTH, NOT, RETURN]
+Error in line 4, column 5 : Couldn't repair and continue parse
+
+jrutyna@linux-04:~/4650/C2/C3/Parser$

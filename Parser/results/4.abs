@@ -1,0 +1,21 @@
+Program
+  FunctionDec: testFunc, Return type: void
+    CompoundExp:
+  FunctionDec: main, Return type: void
+    CompoundExp:
+        WhileExp:
+          VarExp:
+            SimpleVar: x
+          CompoundExp:
+              SimpleDec: y
+                Type: VOID
+              AssignExp:
+                VarExp:
+                  SimpleVar: y
+                VarExp:
+                  SimpleVar: x
+        IfExp:
+          CallExp: Function call to testFunc with arguments:
+            [no arguments]
+          CompoundExp:
+

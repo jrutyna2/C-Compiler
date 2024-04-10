@@ -1,0 +1,632 @@
+/*  Created by: Jordan Rutyna and Mennatallah Elsaban
+    File Name: C.cup    */
+/* ----------------------Preliminary Declarations Section--------------------*/
+import absyn.*;
+import java_cup.runtime.Symbol;
+import java.util.ArrayList;
+import utils.*;
+/* Modify error reporting to include line and column numbers */
+
+parser code {:
+  public boolean syntaxErrorOccurred = false; // Flag to indicate a syntax error
+
+  public void report_error(String message, Object info) {
+    syntaxErrorOccurred = true; // Set the flag when a syntax error is reported
+
+    StringBuffer m = new StringBuffer("Error");
+    if (info instanceof java_cup.runtime.Symbol) {
+        java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+        if (s.left >= 0) {
+            m.append(" in line "+(s.left+1));
+            if (s.right >= 0)
+                m.append(", column "+(s.right+1));
+        }
+    }
+    m.append(" : "+message);
+    System.err.println(m);
+  }
+  public void report_fatal_error(String message, Object info) {
+    report_error(message, info);
+    System.exit(1);
+  }
+:};
+/* ------------Declaration of Terminals and Non Terminals Section----------- */
+/* Token declarations */
+terminal INT, BOOLEAN, VOID;
+terminal IF, WHILE;
+terminal PLUS, MINUS, TIMES, DIVIDE;
+terminal LT, LE, GT, GE, EQ, NE;
+terminal ASSIGN, SEMI, COMMA;
+terminal LPAREN, RPAREN, LBRACKET, RBRACKET, LBRACE, RBRACE;
+terminal NUM;
+terminal String ID;
+terminal Boolean TRUTH;
+terminal ERROR;
+terminal OR, AND, NOT;
+terminal ELSE, RETURN;
+
+// grammar 1
+non terminal Program, DeclarationList, Declaration, VarDeclaration, TypeSpecifier;
+non terminal FunPrototype, Params, ParamList, Param;
+// grammar 2
+non terminal FunDeclaration, CompoundStmt, LocalDeclarations, StatementList, Statement;
+
+non terminal AssignmentExpression;
+non terminal ExpressionStmt;
+non terminal SelectionStmt, IterationStmt, ReturnStmt;
+non terminal Expression, Var, SimpleExpression, AdditiveExpression;
+non terminal Term, Factor, Call, Args, ArgList;
+non terminal addop, mulop, SignedFactor;
+non terminal OboolExpression, AboolExpression, UboolExpression;
+non terminal RelationalOperator;
+/* ------------    Precedence and associativity declarations      ----------- */
+precedence nonassoc LPAREN, RPAREN;
+precedence nonassoc LT, LE, GT, GE, EQ, NE;
+precedence left SEMI;
+precedence left PLUS, MINUS;
+precedence left TIMES, DIVIDE;
+precedence right ASSIGN;
+precedence left OR, AND;
+precedence right NOT;
+precedence nonassoc ELSE;
+
+// precedence right UMINUS;
+
+
+/* ----------------------------Grammar Section-------------------- */
+
+/* Start Symbol */
+start with Program;
+
+/* Program Structure */
+Program ::= DeclarationList:decList
+            {:
+               //pSystem.out.println("Program => Parsed a Program with DeclarationList.");
+               RESULT = new Program(decListleft, decListright, (DecList)decList);
+            :}
+            // | error EOF
+            // {:
+            //     //pSystem.out.println("Program => error");
+            // :}
+            ;
+
+DeclarationList ::= DeclarationList:dl Declaration:d
+            {:
+               //pSystem.out.println("DeclarationList => Multiple");
+               RESULT = new DecList((Dec)d, (DecList)dl);
+            :}
+            | Declaration:d
+            {:
+               //pSystem.out.println("DeclarationList => Single");
+               RESULT = new DecList((Dec)d, null);
+            :}
+            // | error {: //pSystem.out.println("DeclarationList => error"); :}
+            ;
+
+Declaration ::= VarDeclaration:varDec
+            {:
+              //pSystem.out.println("Declaration => VarDeclaration");
+              RESULT = varDec;
+            :}
+            | FunDeclaration:funDec
+            {:
+              //pSystem.out.println("Declaration => FunDeclaration");
+              RESULT = funDec;
+            :}
+            | FunPrototype:funProto
+            {:
+                //pSystem.out.println("Declaration => FunPrototype");
+                RESULT = funProto;
+            :}
+            ;
+
+VarDeclaration ::= TypeSpecifier:type ID:id SEMI
+            {:
+                //pSystem.out.println("VarDeclaration => SimpleDec: " + id);
+                //   RESULT = new SimpleDec(((NameTy)type).row, ((NameTy)type).col, (NameTy)type, id);
+                RESULT = new SimpleDec(typeleft, typeright, (NameTy)type, id);
+                //   RESULT = new SimpleDec(idleft, idright, (NameTy)type, id);
+                // right // //pSystem.out.println(((NameTy)type).row + ", " + ((NameTy)type).col + ", " + (NameTy)type + ", " + id);
+                // right //pSystem.out.println(typeleft + ", " + typeright + ", " + (NameTy)type + ", " + id);
+                // wrong //pSystem.out.println(idleft + ", " + idright + ", " + (NameTy)type + ", " + id);
+
+            :}
+            // | TypeSpecifier:type AssignmentExpression:assignExp
+            // {:
+            //     //pSystem.out.println("VarDeclaration => ArrayDec: " + id);
+            //     RESULT = new ArrayDec(((NameTy)type).row, ((NameTy)type).col, (NameTy)type, id, ((Integer)num).intValue()); // Correctly use row and col from type and cast num to Integer
+            // :}
+            | TypeSpecifier:type ID:id LBRACKET NUM:num RBRACKET SEMI
+            {:
+                //pSystem.out.println("VarDeclaration => ArrayDec: " + id);
+                RESULT = new ArrayDec(typeleft, typeright, (NameTy)type, id, ((Integer)num).intValue()); // Correctly use row and col from type and cast num to Integer
+            :}
+            | TypeSpecifier:type ID:id LBRACKET error:er RBRACKET SEMI
+            {:
+                //pSystem.out.println("VarDeclaration ::= TypeSpecifier:type ID:id LBRACKET [Missing NUM] RBRACKET SEMI");
+                String errorLoc = erleft + ":" + erright + " ";
+                String errorMsg = errorLoc + "VarDeclaration: error: invalid array size in '"+id+"'";
+                ErrorLogger.addSyntaxError(erleft, erright, errorMsg);
+                parser.report_error(errorMsg, null);
+
+                RESULT = new ErrorDec(erleft, erright, errorMsg);
+            :}
+            ;
+TypeSpecifier ::= BOOLEAN:b
+            {:
+              //pSystem.out.println("TypeSpecifier => BOOLEAN");
+              RESULT = new NameTy(bleft, bright, NameTy.BOOL);
+            :}
+            | INT:i
+            {:
+              //pSystem.out.println("TypeSpecifier => INT");
+              RESULT = new NameTy(ileft, iright, NameTy.INT);
+            :}
+            | VOID:v
+            {:
+              //pSystem.out.println("TypeSpecifier => VOID");
+              RESULT = new NameTy(vleft, vright, NameTy.VOID);
+            :}
+            // | ERROR {: //pSystem.out.println("TypeSpecifier => error"); :}
+            ;
+
+FunDeclaration ::= TypeSpecifier:type ID:id LPAREN Params:params RPAREN CompoundStmt:body
+            {:
+              //pSystem.out.println("FunDeclaration => name: " + id);
+              RESULT = new FunDec(typeleft, typeright, (NameTy)type, id, (VarDecList)params, (CompoundExp)body);
+            :};
+
+FunPrototype ::= TypeSpecifier:type ID:id LPAREN Params:params RPAREN SEMI
+            {:
+                //pSystem.out.println("FunPrototype => " + type + " " + id + "( " + params + " );");
+                RESULT = new FunDec(typeleft, typeright, (NameTy)type, id, (VarDecList)params, new NilExp(-1, -1));
+            :};
+
+Params ::= ParamList:paramList
+            {:
+              //pSystem.out.println("Params => ParamList.");
+              RESULT = paramList;
+            :}
+            |
+            {:
+              //pSystem.out.println("Params => EMPTY.");
+              RESULT = new VarDecList(null, null);
+            :}
+            | VOID
+            {:
+              //pSystem.out.println("Params => VOID.");
+              RESULT = new VarDecList(null, null);
+            :};
+
+ParamList ::= ParamList:paramList COMMA Param:param
+            {:
+              //pSystem.out.println("ParamList => Param(s): VarDecList");
+              RESULT = new VarDecList((VarDec)param, (VarDecList)paramList);
+            :}
+            | Param:param
+            {:
+              //pSystem.out.println("ParamList => Param: VarDecList.");
+              RESULT = new VarDecList((VarDec)param, null);
+            :};
+
+Param ::= TypeSpecifier:type ID:id
+            {:
+                //pSystem.out.println("Param => SimpleDec");
+                RESULT = new SimpleDec(typeleft, typeright, (NameTy)type, id);
+            :}
+            | TypeSpecifier:type ID:id LBRACKET RBRACKET
+            {:
+                //pSystem.out.println("Param => ArrayDec");
+                RESULT = new ArrayDec(typeleft, typeright, (NameTy)type, id, -1);
+            :};
+
+CompoundStmt ::= LBRACE:l LocalDeclarations:localDecs StatementList:stmtList RBRACE
+            {:
+                //pSystem.out.println("CompoundStmt => Declarations and Statements.");
+                VarDecList varDecList = (VarDecList)localDecs;
+                if (varDecList == null) { // Handle case: no local declarations//pSystem.out.println("varDecList == null.");
+                    varDecList = new VarDecList(null, null);
+                }
+
+                ExpList expList = (ExpList) stmtList;
+                if (expList == null) { // Handle case: no statements. initialize with NilExp for an 'empty' statement list//pSystem.out.println("expList == null.");
+                    expList = new ExpList(new NilExp(-1, -1), null);
+                }
+
+                RESULT = new CompoundExp(lleft, lright, varDecList, expList);
+            :};
+            // | error {: //pSystem.out.println("\nCompoundStmt => error\n"); :};
+
+// LocalDeclarations ::=
+//             {:
+//                 //pSystem.out.println("LocalDeclarations => Empty");
+//                 RESULT = null;// new VarDecList(null, null);
+//             :}
+//             | LocalDeclarations:localDecs VarDeclaration:varDec
+//             {:
+//                 //pSystem.out.println("LocalDeclarations => Adding VarDeclaration");
+//                 RESULT = new VarDecList((VarDec)varDec, (VarDecList)localDecs);
+//             :};
+LocalDeclarations ::= LocalDeclarations:localDecs VarDeclaration:varDec
+            {:
+                //pSystem.out.println("LocalDeclarations: LocalDeclarations VarDeclaration");
+            
+                if (!(varDec instanceof ErrorDec)) {
+                    // No error, so add the declaration to the list.                
+                    RESULT = new VarDecList((VarDec)varDec, (VarDecList)localDecs);
+                } else {
+                    // Error has been logged. Skip this declaration.
+                    RESULT = localDecs; // Skip this declaration.
+                }
+            :}
+            |
+            {:
+                //pSystem.out.println("LocalDeclarations => Empty");
+                RESULT = null; // Indicating no declarations.
+            :};
+
+StatementList ::= 
+            {:
+                //pSystem.out.println("StatemetttntList => Empty");
+                RESULT = null;//new ExpList(new NilExp(-1, -1), null); 
+            :}
+            | StatementList:stmtList Statement:stmt
+            {:
+                //pSystem.out.println("StatementList => Adding Statement as Expression");
+                RESULT = new ExpList((Exp)stmt, (ExpList)stmtList); 
+            :}
+            // | StatementList:stmtList ERROR SEMI
+            // {:
+            //     //pSystem.out.println("StatementList: Error");
+            //     parser.report_error("Error: invalid statement; skipping to next statement.", null); 
+            //     RESULT = new ExpList(new NilExp(-1, -1), (ExpList)stmtList); //stmtList;
+            // :}
+            ;
+
+Statement ::= ExpressionStmt:exprStmt
+        {:
+            //pSystem.out.println("Statement: ExpressionStmt");
+            RESULT = exprStmt;
+        :}
+        | CompoundStmt:compStmt
+        {:
+            //pSystem.out.println("Statement: CompoundStmt");
+            RESULT = compStmt;
+        :}
+        | SelectionStmt:selStmt
+        {:
+            //pSystem.out.println("Statement:SelectionStmt ");
+            RESULT = selStmt;
+        :}
+        | IterationStmt:iterStmt
+        {:
+            //pSystem.out.println("Statement: IterationStmt");
+            RESULT = iterStmt;
+        :}
+        | ReturnStmt:retStmt
+        {:
+            //pSystem.out.println("Statement: ReturnStmt");
+            RESULT = retStmt;
+        :}
+        // | error
+        // {:
+        //     //pSystem.out.println("Error: Invalid statement; skipping to next statement.");
+        //     parser.report_error("Error: invalid statement; skipping to next statement.", null);
+        // :}
+        ;
+
+ExpressionStmt ::= Expression:exp SEMI
+            {:
+                //pSystem.out.println("ExpressionStmt: Expression SEMI");
+                RESULT = (Exp)exp; 
+            :}
+            | SEMI
+            {:
+                //pSystem.out.println("ExpressionStmt => empty");
+                RESULT = new NilExp(-1, -1); 
+            :};
+SelectionStmt ::= IF LPAREN Expression:exp RPAREN Statement:thenStmt
+            {:
+                //pSystem.out.println("SelectionStmt: IF without ELSE");
+                RESULT = new IfExp(((Exp)exp).row, ((Exp)exp).col, (Exp)exp, (Exp)thenStmt, new NilExp(-1, -1));
+            :}
+            | IF LPAREN Expression:exp RPAREN Statement:thenStmt ELSE Statement:elseStmt
+            {:
+                //pSystem.out.println("SelectionStmt: IF with ELSE");
+                RESULT = new IfExp(((Exp)exp).row, ((Exp)exp).col, (Exp)exp, (Exp)thenStmt, (Exp)elseStmt);
+            :};
+
+IterationStmt ::= WHILE LPAREN Expression:exp RPAREN Statement:stmt
+            {:
+                //pSystem.out.println("WHILE(IterationStmt): WHILE (Expression) Statement");
+                RESULT = new WhileExp(((Exp)exp).row, ((Exp)exp).col, (Exp)exp, (Exp)stmt);
+            :}
+            | WHILE:w LPAREN RPAREN:rp Statement:stmt
+            {:
+                //pSystem.out.println("IterationStmt: WHILE (Empty) Statement");
+                String errorLoc = rpleft + ":" + rpright + " ";
+                String errorMsg = errorLoc + "WHILE: error: expected expression before ‘)’ token";
+                ErrorLogger.addSyntaxError(rpleft, rpright, errorMsg);
+                parser.report_error(errorMsg, null);
+
+                RESULT = new WhileExp(wleft, wleft, new NilExp(rpleft, rpright), (Exp)stmt);
+            :}
+            | WHILE:w Statement:stmt
+            {:
+                //pSystem.out.println("IterationStmt: WHILE Statement");
+                String errorLoc = wleft + ":" + wright + " ";
+                String errorMsg = "WHILE: error: expected ‘(’ before ‘{’ token";
+                ErrorLogger.addSyntaxError(wleft, wright, errorMsg);
+                parser.report_error(errorMsg, null);
+
+                RESULT = new ErrorDec(wleft, wright, errorMsg);
+                // RESULT = new WhileExp(0, 0, new NilExp(0,0), (Exp)stmt);
+            :};
+
+ReturnStmt ::= RETURN:r SEMI
+            {:
+                //pSystem.out.println("ReturnStmt: without value");
+                RESULT = new ReturnExp(rleft, rright, new NilExp(rleft, rright)); 
+            :}
+            | RETURN:r Expression:exp SEMI
+            {:
+                //pSystem.out.println("ReturnStmt: with value");
+                RESULT = new ReturnExp(rleft, rright, (Exp)exp); 
+            :};
+Expression ::= AssignmentExpression:assignExp
+          {:
+            //pSystem.out.println("Expression: AssignmentExpression");
+            RESULT = assignExp;
+          :}
+          | OboolExpression:boolExp
+          {:
+            //pSystem.out.println("Expression: OboolExpression");
+            RESULT = boolExp;
+          :}
+          ;
+
+AssignmentExpression ::= Var:var ASSIGN:as Expression:exp
+        {:
+            //pSystem.out.println("AssignmentExpression1:");
+            // Use a more generic handling for the variable's name or representation
+            //pSystem.out.println("AssignmentExpression2: " + var.toString() + " = " + exp);
+            String varRepresentation = var instanceof SimpleVar ? ((SimpleVar)var).name : var.toString();
+            // //pSystem.out.println("AssignmentExpression3: " + varRepresentation + " = " + exp);
+            // //pSystem.out.println("var:" + varleft + ", " + varright);
+            // //pSystem.out.println("as(=):" + asleft + ", " + asright);
+            
+            // Directly wrap 'var' within a VarExp, without assuming it's a SimpleVar
+            VarExp varExp = new VarExp(varleft, varright, (Var)var);
+            RESULT = new AssignExp(asleft, asright, varExp, (Exp)exp);
+        :};
+
+Var ::= ID:id
+        {:
+            // //pSystem.out.println("Var: ID=" + id);
+            //pSystem.out.println("Var ::= ID=" + id + " left:" +idleft+" right:"+idright);
+
+            RESULT = new SimpleVar(idleft, idright, id); 
+        :}
+        | ID:id LBRACKET Expression:exp RBRACKET
+        {:
+            //pSystem.out.println("Var: Array Access=" + id + "[" + exp + "]");
+            RESULT = new IndexVar(idleft, idright, id, (Exp)exp); 
+        :};
+OboolExpression ::= AboolExpression:exp
+        {:
+            //pSystem.out.println("OboolExpression: ");
+            RESULT = exp;
+        :}
+        | OboolExpression:left OR:or AboolExpression:right
+        {:
+            //pSystem.out.println("OboolExpression: OR operation");
+            RESULT = new OpExp(leftleft, leftright, (Exp)left, OpExp.OR, (Exp)right); 
+        :}
+        ;
+AboolExpression ::= UboolExpression:exp
+        {:
+            //pSystem.out.println("AboolExpression(AND): UboolExpression(NOT)");
+            RESULT = exp;
+        :}
+        | AboolExpression:left AND UboolExpression:right
+        {:
+            //pSystem.out.println("AboolExpression: AND operation");
+            RESULT = new OpExp(leftleft, leftright, (Exp)left, OpExp.AND, (Exp)right); 
+        :}
+        ;
+UboolExpression ::= SimpleExpression:exp
+        {:
+            //pSystem.out.println("UboolExpression: SimpleExpression");
+            RESULT = (Exp)exp;
+        :}
+        | NOT UboolExpression:exp
+        {:
+            //pSystem.out.println("UboolExpression: NOT operation");
+            RESULT = new OpExp(expleft, expright, new NilExp(-1, -1), OpExp.NOT, (Exp)exp);
+        :};
+
+SimpleExpression ::= AdditiveExpression:exp
+    {:
+        //pSystem.out.println("SimpleExpression: AdditiveExpression");
+        RESULT = exp;
+    :}
+    | SimpleExpression:left RelationalOperator:op AdditiveExpression:right
+    {:
+        //pSystem.out.println("SimpleExpression: SimpleExpression RelationalOperator AdditiveExpression");
+
+        Exp leftExp = left instanceof Var ? new VarExp(leftleft, leftright, (Var)left) : (Exp)left;
+        Exp rightExp = right instanceof Var ? new VarExp(rightleft, rightright, (Var)right) : (Exp)right;
+        RESULT = new OpExp(opleft, opright, leftExp, ((Integer)op).intValue(), rightExp);
+    :};
+
+RelationalOperator ::= LT
+        {:
+            //pSystem.out.println("Relop: <");
+            RESULT = OpExp.LT;
+        :}
+        | LE
+        {:
+            //pSystem.out.println("Relop: <=");
+            RESULT = OpExp.LE;
+        :}
+        | GT
+        {:
+            //pSystem.out.println("Relop: >");
+            RESULT = OpExp.GT;
+        :}
+        | GE
+        {:
+            //pSystem.out.println("Relop: >=");
+            RESULT = OpExp.GE;
+        :}
+        | EQ
+        {:
+            //pSystem.out.println("Relop: ");
+            RESULT = OpExp.EQ;
+        :}
+        | NE
+        {:
+            //pSystem.out.println("Relop: ");
+            RESULT = OpExp.NE;
+        :}
+        // | ERROR
+        // {:
+        //     //pSystem.out.println("Error: Lexical Error");
+        //     parser.report_error("Missing variable name", null);
+        //     // RESULT = new ErrorExp(0, 0);
+        // :}
+        ;
+
+AdditiveExpression ::= Term:term
+        {:
+            //pSystem.out.println("AdditiveExpression: Single Term");
+            RESULT = term;
+        :}
+        | AdditiveExpression:addExp addop:op Term:term
+        {:
+            //pSystem.out.println("AdditiveExpression: Operation");
+            RESULT = new OpExp(addExpleft, addExpright, (Exp)addExp, ((Integer)op).intValue(), (Exp)term);
+        :}
+        ;
+addop ::= PLUS
+        {:
+            //pSystem.out.println("Addop: ");
+            RESULT = OpExp.PLUS; 
+        :}
+        | MINUS
+        {:
+            //pSystem.out.println("Addop: ");
+            RESULT = OpExp.MINUS; 
+        :};
+
+Term ::= Term:term mulop:op SignedFactor:signedFactor
+        {:
+            //pSystem.out.println("Term: Multiplication or Division");
+            Exp termExp = term instanceof Var ? new VarExp(termleft, termright, (Var)term) : (Exp)term;
+            Exp signedFactorExp = signedFactor instanceof Var ? new VarExp(signedFactorleft, signedFactorright, (Var)signedFactor) : (Exp)signedFactor;
+            RESULT = new OpExp(opleft, opright, termExp, ((Integer)op).intValue(), signedFactorExp);
+        :}
+        | SignedFactor:signedFactor
+        {:
+            //pSystem.out.println("Term: Single SignedFactor");
+            RESULT = signedFactor instanceof Var ? new VarExp(signedFactorleft, signedFactorright, (Var)signedFactor) : signedFactor;
+        :};
+mulop ::= TIMES
+        {:
+            //pSystem.out.println("Mulop: ");
+            RESULT = OpExp.MUL; 
+        :}
+        | DIVIDE
+        {:
+            //pSystem.out.println("Mulop: ");
+            RESULT = OpExp.DIV; 
+        :};
+// SignedFactor ::= MINUS SignedFactor:signedFactor
+//         {:
+//             //pSystem.out.println("SignedFactor: Negative");
+//             RESULT = new OpExp(0, 0, new NilExp(-1, -1), OpExp.UMINUS, (VarExp)signedFactor);
+//         :}
+//         | Factor:factor
+//         {:
+//             //pSystem.out.println("SignedFactor: Factor");
+//             RESULT = factor;
+//         :};
+SignedFactor ::= MINUS SignedFactor:signedFactor
+        {:
+            //pSystem.out.println("SignedFactor: Negative");
+            RESULT = new OpExp(0, 0, new NilExp(-1, -1), OpExp.UMINUS, (Exp)signedFactor);
+        :}
+        | Factor:factor
+        {:
+            //pSystem.out.println("SignedFactor: Factor");
+            RESULT = factor;
+        :};
+Factor ::= LPAREN Expression:exp RPAREN
+        {:
+            //pSystem.out.println("Factor: Parenthesized Expression");
+            RESULT = exp;
+        :}
+        | Var:var
+        {:
+            //pSystem.out.println("Factor: Variable");
+            RESULT = var;
+        :}
+        | Call:call
+        {:
+            //pSystem.out.println("Factor: Function Call");
+            RESULT = call;
+        :}
+        | NUM:num
+        {:
+            //pSystem.out.println("Factor: NUM: " + num);
+            RESULT = new IntExp(numleft, numright, ((Integer)num).intValue());
+        :}
+        | TRUTH:truth
+        {:
+            //pSystem.out.println("***Factor: TRUTH: " + truth);
+            RESULT = new BoolExp(truthleft, truthright, truth);
+        :}
+        // | ERROR
+        // {:
+        //     //pSystem.out.println("Error: Lexical Error");
+        //     parser.report_error("Missing variable name", null);
+        //     // RESULT = new ErrorExp(0, 0);
+        // :}
+        ;
+Call ::= ID:id LPAREN Args:args RPAREN
+        {:
+            //pSystem.out.println("Call: Function Call with ID " + id + " and Args");
+            RESULT = new CallExp(idleft, idright, id, (ExpList)args);
+        :}
+        | ID:id LPAREN RPAREN
+        {:
+            //pSystem.out.println("Call: Empty Args");
+            // String errorMsg = "Call: Empty Args";
+            // ErrorLogger.addSyntaxError(tfleft, tfright, errorMsg);
+            // RESULT = new ErrorDec(((NameTy)type).row, ((NameTy)type).col, errorMsg);
+            // parser.report_error(errorMsg, null);
+            // parser.report_error("Call: Empty call, missing Args", null); 
+            RESULT = new CallExp(idleft, idright, id, null);
+        :}
+        ;
+
+Args ::= ArgList:argList
+        {:
+            //pSystem.out.println("Args: Argument List");
+            RESULT = argList; 
+        :};
+        // |
+        // {:
+        //     //pSystem.out.println("Args: No Arguments");
+        //     RESULT = new ExpList(null, null);
+        // :};
+ArgList ::= ArgList:argList COMMA Expression:exp
+        {:
+            //pSystem.out.println("ArgList: Adding Expression to ArgList");
+            RESULT = new ExpList((Exp)exp, (ExpList)argList);
+        :}
+        | Expression:exp
+        {:
+            //pSystem.out.println("ArgList: Single Expression");
+            RESULT = new ExpList((Exp)exp, null);
+        :};

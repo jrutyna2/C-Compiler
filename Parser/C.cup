@@ -1,0 +1,467 @@
+/*  Created by: Jordan Rutyna and Mennatallah Elsaban
+    File Name: C.cup    */
+/* ----------------------Preliminary Declarations Section--------------------*/
+import absyn.*;
+import java_cup.runtime.Symbol;
+import java.util.ArrayList;
+import utils.*;
+/* Modify error reporting to include line and column numbers */
+
+parser code {:
+  public boolean syntaxErrorOccurred = false; // Flag to indicate a syntax error
+
+  public void report_error(String message, Object info) {
+    syntaxErrorOccurred = true; // Set the flag when a syntax error is reported
+
+    StringBuffer m = new StringBuffer("Error");
+    if (info instanceof java_cup.runtime.Symbol) {
+        java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+        if (s.left >= 0) {
+            m.append(" in line "+(s.left+1));
+            if (s.right >= 0)
+                m.append(", column "+(s.right+1));
+        }
+    }
+    m.append(" : "+message);
+    System.err.println(m);
+  }
+  public void report_fatal_error(String message, Object info) {
+    report_error(message, info);
+    System.exit(1);
+  }
+:};
+/* ------------Declaration of Terminals and Non Terminals Section----------- */
+/* Token declarations */
+terminal INT, BOOLEAN, VOID;
+terminal IF, WHILE;
+terminal PLUS, MINUS, TIMES, DIVIDE;
+terminal LT, LE, GT, GE, EQ, NE;
+terminal ASSIGN, SEMI, COMMA;
+terminal LPAREN, RPAREN, LBRACKET, RBRACKET, LBRACE, RBRACE;
+terminal NUM;
+terminal String ID;
+terminal Boolean TRUTH;
+terminal ERROR;
+terminal OR, AND, NOT;
+terminal ELSE, RETURN;
+non terminal Program, DeclarationList, Declaration, VarDeclaration, TypeSpecifier;
+non terminal FunPrototype, Params, ParamList, Param;
+non terminal FunDeclaration, CompoundStmt, LocalDeclarations, StatementList, Statement;
+
+non terminal AssignmentExpression;
+non terminal ExpressionStmt;
+non terminal SelectionStmt, IterationStmt, ReturnStmt;
+non terminal Expression, Var, SimpleExpression, AdditiveExpression;
+non terminal Term, Factor, Call, Args, ArgList;
+non terminal addop, mulop, SignedFactor;
+non terminal OboolExpression, AboolExpression, UboolExpression;
+non terminal RelationalOperator;
+/* ------------    Precedence and associativity declarations      ----------- */
+precedence nonassoc LPAREN, RPAREN;
+precedence nonassoc LT, LE, GT, GE, EQ, NE;
+precedence left SEMI;
+precedence left PLUS, MINUS;
+precedence left TIMES, DIVIDE;
+precedence right ASSIGN;
+precedence left OR, AND;
+precedence right NOT;
+precedence nonassoc ELSE;
+
+
+/* ----------------------------Grammar Section-------------------- */
+
+/* Start Symbol */
+start with Program;
+
+/* Program Structure */
+Program ::= DeclarationList:decList
+            {:
+               RESULT = new Program(decListleft, decListright, (DecList)decList);
+            :}
+            ;
+
+DeclarationList ::= DeclarationList:dl Declaration:d
+            {:
+               RESULT = new DecList((Dec)d, (DecList)dl);
+            :}
+            | Declaration:d
+            {:
+               RESULT = new DecList((Dec)d, null);
+            :}
+            ;
+
+Declaration ::= VarDeclaration:varDec
+            {:
+              RESULT = varDec;
+            :}
+            | FunDeclaration:funDec
+            {:
+              RESULT = funDec;
+            :}
+            | FunPrototype:funProto
+            {:
+                RESULT = funProto;
+            :}
+            ;
+
+VarDeclaration ::= TypeSpecifier:type ID:id SEMI
+            {:
+                RESULT = new SimpleDec(typeleft, typeright, (NameTy)type, id);
+
+            :}
+            | TypeSpecifier:type ID:id LBRACKET NUM:num RBRACKET SEMI
+            {:
+                RESULT = new ArrayDec(typeleft, typeright, (NameTy)type, id, ((Integer)num).intValue()); // Correctly use row and col from type and cast num to Integer
+            :}
+            | TypeSpecifier:type ID:id LBRACKET error:er RBRACKET SEMI
+            {:
+                String errorLoc = erleft + ":" + erright + " ";
+                String errorMsg = errorLoc + "VarDeclaration: error: invalid array size in '"+id+"'";
+                ErrorLogger.addSyntaxError(erleft, erright, errorMsg);
+                parser.report_error(errorMsg, null);
+
+                RESULT = new ErrorDec(erleft, erright, errorMsg);
+            :}
+            ;
+TypeSpecifier ::= BOOLEAN:b
+            {:
+              RESULT = new NameTy(bleft, bright, NameTy.BOOL);
+            :}
+            | INT:i
+            {:
+              RESULT = new NameTy(ileft, iright, NameTy.INT);
+            :}
+            | VOID:v
+            {:
+              RESULT = new NameTy(vleft, vright, NameTy.VOID);
+            :}
+            ;
+
+FunDeclaration ::= TypeSpecifier:type ID:id LPAREN Params:params RPAREN CompoundStmt:body
+            {:
+              RESULT = new FunDec(typeleft, typeright, (NameTy)type, id, (VarDecList)params, (CompoundExp)body);
+            :};
+
+FunPrototype ::= TypeSpecifier:type ID:id LPAREN Params:params RPAREN SEMI
+            {:
+                RESULT = new FunDec(typeleft, typeright, (NameTy)type, id, (VarDecList)params, new NilExp(-1, -1));
+            :};
+
+Params ::= ParamList:paramList
+            {:
+              RESULT = paramList;
+            :}
+            |
+            {:
+              RESULT = new VarDecList(null, null);
+            :}
+            | VOID
+            {:
+              RESULT = new VarDecList(null, null);
+            :};
+
+ParamList ::= ParamList:paramList COMMA Param:param
+            {:
+              RESULT = new VarDecList((VarDec)param, (VarDecList)paramList);
+            :}
+            | Param:param
+            {:
+              RESULT = new VarDecList((VarDec)param, null);
+            :};
+
+Param ::= TypeSpecifier:type ID:id
+            {:
+                RESULT = new SimpleDec(typeleft, typeright, (NameTy)type, id);
+            :}
+            | TypeSpecifier:type ID:id LBRACKET RBRACKET
+            {:
+                RESULT = new ArrayDec(typeleft, typeright, (NameTy)type, id, -1);
+            :};
+
+CompoundStmt ::= LBRACE:l LocalDeclarations:localDecs StatementList:stmtList RBRACE
+            {:
+                VarDecList varDecList = (VarDecList)localDecs;
+                if (varDecList == null) { // Handle case: no local declarations//pSystem.out.println("varDecList == null.");
+                    varDecList = new VarDecList(null, null);
+                }
+
+                ExpList expList = (ExpList) stmtList;
+                if (expList == null) { // Handle case: no statements. initialize with NilExp for an 'empty' statement list//pSystem.out.println("expList == null.");
+                    expList = new ExpList(new NilExp(-1, -1), null);
+                }
+
+                RESULT = new CompoundExp(lleft, lright, varDecList, expList);
+            :};
+LocalDeclarations ::= LocalDeclarations:localDecs VarDeclaration:varDec
+            {:
+            
+                if (!(varDec instanceof ErrorDec)) {
+                    RESULT = new VarDecList((VarDec)varDec, (VarDecList)localDecs);
+                } else {
+                    RESULT = localDecs; // Skip this declaration.
+                }
+            :}
+            |
+            {:
+                RESULT = null; // Indicating no declarations.
+            :};
+
+StatementList ::= 
+            {:
+                RESULT = null;//new ExpList(new NilExp(-1, -1), null); 
+            :}
+            | StatementList:stmtList Statement:stmt
+            {:
+                RESULT = new ExpList((Exp)stmt, (ExpList)stmtList); 
+            :}
+            ;
+
+Statement ::= ExpressionStmt:exprStmt
+        {:
+            RESULT = exprStmt;
+        :}
+        | CompoundStmt:compStmt
+        {:
+            RESULT = compStmt;
+        :}
+        | SelectionStmt:selStmt
+        {:
+            RESULT = selStmt;
+        :}
+        | IterationStmt:iterStmt
+        {:
+            RESULT = iterStmt;
+        :}
+        | ReturnStmt:retStmt
+        {:
+            RESULT = retStmt;
+        :}
+        ;
+
+ExpressionStmt ::= Expression:exp SEMI
+            {:
+                RESULT = (Exp)exp; 
+            :}
+            | SEMI
+            {:
+                RESULT = new NilExp(-1, -1); 
+            :};
+SelectionStmt ::= IF LPAREN Expression:exp RPAREN Statement:thenStmt
+            {:
+                RESULT = new IfExp(((Exp)exp).row, ((Exp)exp).col, (Exp)exp, (Exp)thenStmt, new NilExp(-1, -1));
+            :}
+            | IF LPAREN Expression:exp RPAREN Statement:thenStmt ELSE Statement:elseStmt
+            {:
+                RESULT = new IfExp(((Exp)exp).row, ((Exp)exp).col, (Exp)exp, (Exp)thenStmt, (Exp)elseStmt);
+            :};
+
+IterationStmt ::= WHILE LPAREN Expression:exp RPAREN Statement:stmt
+            {:
+                RESULT = new WhileExp(((Exp)exp).row, ((Exp)exp).col, (Exp)exp, (Exp)stmt);
+            :}
+            | WHILE:w LPAREN RPAREN:rp Statement:stmt
+            {:
+                String errorLoc = rpleft + ":" + rpright + " ";
+                String errorMsg = errorLoc + "WHILE: error: expected expression before ‘)’ token";
+                ErrorLogger.addSyntaxError(rpleft, rpright, errorMsg);
+                parser.report_error(errorMsg, null);
+
+                RESULT = new WhileExp(wleft, wleft, new NilExp(rpleft, rpright), (Exp)stmt);
+            :}
+            | WHILE:w Statement:stmt
+            {:
+                String errorLoc = wleft + ":" + wright + " ";
+                String errorMsg = "WHILE: error: expected ‘(’ before ‘{’ token";
+                ErrorLogger.addSyntaxError(wleft, wright, errorMsg);
+                parser.report_error(errorMsg, null);
+
+                RESULT = new ErrorDec(wleft, wright, errorMsg);
+            :};
+
+ReturnStmt ::= RETURN:r SEMI
+            {:
+                RESULT = new ReturnExp(rleft, rright, new NilExp(rleft, rright)); 
+            :}
+            | RETURN:r Expression:exp SEMI
+            {:
+                RESULT = new ReturnExp(rleft, rright, (Exp)exp); 
+            :};
+Expression ::= AssignmentExpression:assignExp
+          {:
+            RESULT = assignExp;
+          :}
+          | OboolExpression:boolExp
+          {:
+            RESULT = boolExp;
+          :}
+          ;
+
+AssignmentExpression ::= Var:var ASSIGN:as Expression:exp
+        {:
+            String varRepresentation = var instanceof SimpleVar ? ((SimpleVar)var).name : var.toString();
+            VarExp varExp = new VarExp(varleft, varright, (Var)var);
+            RESULT = new AssignExp(asleft, asright, varExp, (Exp)exp);
+        :};
+
+Var ::= ID:id
+        {:
+
+            RESULT = new SimpleVar(idleft, idright, id); 
+        :}
+        | ID:id LBRACKET Expression:exp RBRACKET
+        {:
+            RESULT = new IndexVar(idleft, idright, id, (Exp)exp); 
+        :};
+OboolExpression ::= AboolExpression:exp
+        {:
+            RESULT = exp;
+        :}
+        | OboolExpression:left OR:or AboolExpression:right
+        {:
+            RESULT = new OpExp(leftleft, leftright, (Exp)left, OpExp.OR, (Exp)right); 
+        :}
+        ;
+AboolExpression ::= UboolExpression:exp
+        {:
+            RESULT = exp;
+        :}
+        | AboolExpression:left AND UboolExpression:right
+        {:
+            RESULT = new OpExp(leftleft, leftright, (Exp)left, OpExp.AND, (Exp)right); 
+        :}
+        ;
+UboolExpression ::= SimpleExpression:exp
+        {:
+            RESULT = (Exp)exp;
+        :}
+        | NOT UboolExpression:exp
+        {:
+            RESULT = new OpExp(expleft, expright, new NilExp(-1, -1), OpExp.NOT, (Exp)exp);
+        :};
+
+SimpleExpression ::= AdditiveExpression:exp
+    {:
+        RESULT = exp;
+    :}
+    | SimpleExpression:left RelationalOperator:op AdditiveExpression:right
+    {:
+
+        Exp leftExp = left instanceof Var ? new VarExp(leftleft, leftright, (Var)left) : (Exp)left;
+        Exp rightExp = right instanceof Var ? new VarExp(rightleft, rightright, (Var)right) : (Exp)right;
+        RESULT = new OpExp(opleft, opright, leftExp, ((Integer)op).intValue(), rightExp);
+    :};
+
+RelationalOperator ::= LT
+        {:
+            RESULT = OpExp.LT;
+        :}
+        | LE
+        {:
+            RESULT = OpExp.LE;
+        :}
+        | GT
+        {:
+            RESULT = OpExp.GT;
+        :}
+        | GE
+        {:
+            RESULT = OpExp.GE;
+        :}
+        | EQ
+        {:
+            RESULT = OpExp.EQ;
+        :}
+        | NE
+        {:
+            RESULT = OpExp.NE;
+        :}
+        ;
+
+AdditiveExpression ::= Term:term
+        {:
+            RESULT = term;
+        :}
+        | AdditiveExpression:addExp addop:op Term:term
+        {:
+            RESULT = new OpExp(addExpleft, addExpright, (Exp)addExp, ((Integer)op).intValue(), (Exp)term);
+        :}
+        ;
+addop ::= PLUS
+        {:
+            RESULT = OpExp.PLUS; 
+        :}
+        | MINUS
+        {:
+            RESULT = OpExp.MINUS; 
+        :};
+
+Term ::= Term:term mulop:op SignedFactor:signedFactor
+        {:
+            Exp termExp = term instanceof Var ? new VarExp(termleft, termright, (Var)term) : (Exp)term;
+            Exp signedFactorExp = signedFactor instanceof Var ? new VarExp(signedFactorleft, signedFactorright, (Var)signedFactor) : (Exp)signedFactor;
+            RESULT = new OpExp(opleft, opright, termExp, ((Integer)op).intValue(), signedFactorExp);
+        :}
+        | SignedFactor:signedFactor
+        {:
+            RESULT = signedFactor instanceof Var ? new VarExp(signedFactorleft, signedFactorright, (Var)signedFactor) : signedFactor;
+        :};
+mulop ::= TIMES
+        {:
+            RESULT = OpExp.MUL; 
+        :}
+        | DIVIDE
+        {:
+            RESULT = OpExp.DIV; 
+        :};
+SignedFactor ::= MINUS SignedFactor:signedFactor
+        {:
+            RESULT = new OpExp(0, 0, new NilExp(-1, -1), OpExp.UMINUS, (Exp)signedFactor);
+        :}
+        | Factor:factor
+        {:
+            RESULT = factor;
+        :};
+Factor ::= LPAREN Expression:exp RPAREN
+        {:
+            RESULT = exp;
+        :}
+        | Var:var
+        {:
+            RESULT = var;
+        :}
+        | Call:call
+        {:
+            RESULT = call;
+        :}
+        | NUM:num
+        {:
+            RESULT = new IntExp(numleft, numright, ((Integer)num).intValue());
+        :}
+        | TRUTH:truth
+        {:
+            RESULT = new BoolExp(truthleft, truthright, truth);
+        :}
+        ;
+Call ::= ID:id LPAREN Args:args RPAREN
+        {:
+            RESULT = new CallExp(idleft, idright, id, (ExpList)args);
+        :}
+        | ID:id LPAREN RPAREN
+        {:
+            RESULT = new CallExp(idleft, idright, id, null);
+        :}
+        ;
+
+Args ::= ArgList:argList
+        {:
+            RESULT = argList; 
+        :};
+
+ArgList ::= ArgList:argList COMMA Expression:exp
+        {:
+            RESULT = new ExpList((Exp)exp, (ExpList)argList);
+        :}
+        | Expression:exp
+        {:
+            RESULT = new ExpList((Exp)exp, null);
+        :};

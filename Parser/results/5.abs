@@ -1,0 +1,19 @@
+Program
+  FunctionDec: main, Return type: void
+    CompoundExp:
+        SimpleDec: b
+          Type: BOOL
+        WhileExp:
+          VarExp:
+            SimpleVar: condition
+          CompoundExp:
+        AssignExp:
+          VarExp:
+            SimpleVar: condition
+          VarExp:
+            SimpleVar: b
+        AssignExp:
+          VarExp:
+            SimpleVar: b
+          BoolExp: true
+

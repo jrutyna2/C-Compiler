@@ -1,0 +1,4 @@
+int run() {
+  int nothing;
+  return 1;
+} 

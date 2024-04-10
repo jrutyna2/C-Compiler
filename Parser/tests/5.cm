@@ -1,0 +1,8 @@
+void main() {
+    bool b;
+    b = true;
+    condition = b;
+    while (condition) { // Error: 'while' condition expects a boolean expression
+        // Some code
+    }
+}

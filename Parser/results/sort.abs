@@ -1,0 +1,206 @@
+Program
+  ArrayDec: x[10]
+    Type: INT
+  FunctionDec: minloc, Return type: int
+      SimpleDec: high
+        Type: INT
+      SimpleDec: low
+        Type: INT
+      ArrayDec: a[-1]
+        Type: INT
+    CompoundExp:
+        SimpleDec: k
+          Type: INT
+        SimpleDec: x
+          Type: INT
+        SimpleDec: i
+          Type: INT
+        ReturnExp: VarExp:
+          SimpleVar: k
+        WhileExp:
+          OpExp: <
+            VarExp:
+              SimpleVar: i
+            VarExp:
+              SimpleVar: high
+          CompoundExp:
+              AssignExp:
+                VarExp:
+                  SimpleVar: i
+                OpExp: +
+                  VarExp:
+                    SimpleVar: i
+                  IntExp: 1
+              IfExp:
+                OpExp: <
+                  VarExp:
+                    IndexVar: a [
+                      VarExp:
+                        SimpleVar: i
+]
+                  VarExp:
+                    SimpleVar: x
+                CompoundExp:
+                    AssignExp:
+                      VarExp:
+                        SimpleVar: k
+                      VarExp:
+                        SimpleVar: i
+                    AssignExp:
+                      VarExp:
+                        SimpleVar: x
+                      VarExp:
+                        IndexVar: a [
+                          VarExp:
+                            SimpleVar: i
+]
+        AssignExp:
+          VarExp:
+            SimpleVar: i
+          OpExp: +
+            VarExp:
+              SimpleVar: low
+            IntExp: 1
+        AssignExp:
+          VarExp:
+            SimpleVar: x
+          VarExp:
+            IndexVar: a [
+              VarExp:
+                SimpleVar: low
+]
+        AssignExp:
+          VarExp:
+            SimpleVar: k
+          VarExp:
+            SimpleVar: low
+  FunctionDec: sort, Return type: void
+      SimpleDec: high
+        Type: INT
+      SimpleDec: low
+        Type: INT
+      ArrayDec: a[-1]
+        Type: INT
+    CompoundExp:
+        SimpleDec: k
+          Type: INT
+        SimpleDec: i
+          Type: INT
+        WhileExp:
+          OpExp: <
+            VarExp:
+              SimpleVar: i
+            OpExp: -
+              VarExp:
+                SimpleVar: high
+              IntExp: 1
+          CompoundExp:
+              SimpleDec: t
+                Type: INT
+              AssignExp:
+                VarExp:
+                  SimpleVar: i
+                OpExp: +
+                  VarExp:
+                    SimpleVar: i
+                  IntExp: 1
+              AssignExp:
+                VarExp:
+                  IndexVar: a [
+                    VarExp:
+                      SimpleVar: i
+]
+                VarExp:
+                  SimpleVar: t
+              AssignExp:
+                VarExp:
+                  IndexVar: a [
+                    VarExp:
+                      SimpleVar: k
+]
+                VarExp:
+                  IndexVar: a [
+                    VarExp:
+                      SimpleVar: i
+]
+              AssignExp:
+                VarExp:
+                  SimpleVar: t
+                VarExp:
+                  IndexVar: a [
+                    VarExp:
+                      SimpleVar: k
+]
+              AssignExp:
+                VarExp:
+                  SimpleVar: k
+                CallExp: Function call to minloc with arguments:
+                  VarExp:
+                    SimpleVar: high
+                  VarExp:
+                    SimpleVar: i
+                  VarExp:
+                    SimpleVar: a
+        AssignExp:
+          VarExp:
+            SimpleVar: i
+          VarExp:
+            SimpleVar: low
+  FunctionDec: main, Return type: void
+    CompoundExp:
+        SimpleDec: i
+          Type: INT
+        WhileExp:
+          OpExp: <
+            VarExp:
+              SimpleVar: i
+            IntExp: 10
+          CompoundExp:
+              AssignExp:
+                VarExp:
+                  SimpleVar: i
+                OpExp: +
+                  VarExp:
+                    SimpleVar: i
+                  IntExp: 1
+              CallExp: Function call to output with arguments:
+                VarExp:
+                  IndexVar: x [
+                    VarExp:
+                      SimpleVar: i
+]
+        AssignExp:
+          VarExp:
+            SimpleVar: i
+          IntExp: 0
+        CallExp: Function call to sort with arguments:
+          IntExp: 10
+          IntExp: 0
+          VarExp:
+            SimpleVar: x
+        WhileExp:
+          OpExp: <
+            VarExp:
+              SimpleVar: i
+            IntExp: 10
+          CompoundExp:
+              AssignExp:
+                VarExp:
+                  SimpleVar: i
+                OpExp: +
+                  VarExp:
+                    SimpleVar: i
+                  IntExp: 1
+              AssignExp:
+                VarExp:
+                  IndexVar: x [
+                    VarExp:
+                      SimpleVar: i
+]
+                CallExp: Function call to input with arguments:
+                  [no arguments]
+        AssignExp:
+          VarExp:
+            SimpleVar: i
+          IntExp: 0
+
