@@ -503,7 +503,7 @@ private void updateHighEmitLoc() {
             }
             return; // Exit after handling output.
         }
-                
+
         ExpList argList = callExp.args;
         int argCount = 0;
         while (argList != null && argList.head != null) {
@@ -537,8 +537,6 @@ private void updateHighEmitLoc() {
             emitComment("Handling function return as an address might not be directly supported and needs specific handling");
         }
     }
-
-
 
     private int getVariableOffset(String varName, int level) {
         // Placeholder for the actual offset retrieval logic.
