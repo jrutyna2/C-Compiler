@@ -100,6 +100,7 @@ class Main {
         String tmCode = codeGenerator.getGeneratedCode();
         writeToFile(baseFileName + ".tm", tmCode);
         System.out.println("Code Generation DONE");
+        System.out.println(tmCode);
     }
 
     static String getBaseFileName(String filePath) {

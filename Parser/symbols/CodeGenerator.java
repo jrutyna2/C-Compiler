@@ -4,6 +4,8 @@ import utils.*;
 import java.util.Stack;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ArrayDeque;
+import java.util.Deque;
 public class CodeGenerator implements AbsynVisitor {
    
     private int currentLocation = 0; 
@@ -26,6 +28,7 @@ public class CodeGenerator implements AbsynVisitor {
     private int sp = 1; // Assuming you want to introduce a stack pointer
     private SymbolTable symbolTable;
     private StringBuilder codeBuilder = new StringBuilder();
+
 
     // public CodeGenerator(SymbolTable symbolTable, Program program) {
     //     this.symbolTable = symbolTable;
@@ -149,14 +152,29 @@ private void updateHighEmitLoc() {
         emitRO("HALT", 0, 0, 0, "End of program");
         emitFinale();
     }
-
-    @Override
-    public void visit(DecList decList, int level, boolean isAddr) {
-        while (decList != null && decList.head != null) {
-            decList.head.accept(this, level + 1, false);
-            decList = decList.tail;
-        }
+// @Override
+// public void visit(DecList decList, int level, boolean isAddr) {
+//     while (decList != null && decList.head != null) {
+//         decList.head.accept(this, level + 1, false);
+//         decList = decList.tail;
+//     }
+// }
+@Override
+public void visit(DecList decList, int level, boolean isAddr) {
+    // Initialize a stack to hold the declarations
+    Deque<Dec> stack = new ArrayDeque<>();
+    // Traverse the DecList and push each declaration onto the stack
+    while (decList != null && decList.head != null) {
+        stack.push(decList.head);
+        decList = decList.tail;
     }
+    // Pop each declaration off the stack and visit it
+    // This ensures that declarations are processed in the order they appear in the source code
+    while (!stack.isEmpty()) {
+        Dec dec = stack.pop();
+        dec.accept(this, level + 1, isAddr);
+    }
+}
 
     @Override
     public void visit(FunDec funDec, int level, boolean isAddr) {
@@ -167,6 +185,7 @@ private void updateHighEmitLoc() {
             // Handle other functions
             functionDirectory.put(funDec.funcName, emitSkip(0));
             emitComment("Function declaration: " + funDec.funcName);
+            System.out.println("Function declaration: " + funDec.funcName);
         }
 
         // Handle function arguments and body
@@ -364,26 +383,17 @@ private void updateHighEmitLoc() {
     public void visit(WhileExp whileExp, int level, boolean isAddr) {
         emitComment("start of while loop");
 
-        // Label at the start of the loop for jumping back
-        String startLoopLabel = "L" + emitSkip(0); // Assume emitSkip(0) effectively marks the current location without skipping
+        int startLoopLoc = emitLoc; // Directly use integer for loop start location
+        whileExp.test.accept(this, level + 1, false); // Generate test expression code
+        
+        int jumpToEndLoc = emitSkip(1); // Reserve space for conditional jump out of loop
+        whileExp.body.accept(this, level + 1, false); // Generate loop body code
 
-        // Generate code for the test expression
-        whileExp.test.accept(this, level + 1, false);
-
-        // Assuming the result of the test expression is now in `ac`
-        // If the test is false, jump to the end of the loop; placeholder for now
-        int endLoopLabel = emitSkip(1); // Reserve space to backpatch jump address
-
-        // Generate code for the loop body
-        whileExp.body.accept(this, level + 1, false);
-
-        // Jump back to the start of the loop
-       // emitRM("LDA", pc, startLoopLabel - (emitLoc + 1), pc, "jump back to the start of the loop");
-
-        // Backpatch the address for the end of the loop with the correct jump target
-        int skipBack = emitLoc - endLoopLabel + 1; // Calculate how far we need to go back for the 'JEQ' jump
-        emitBackup(endLoopLabel);
-        emitRM("JEQ", ac, skipBack, pc, "Jump to end of loop if condition is false");
+        emitRM_Abs("LDA", pc, startLoopLoc, "jump back to the start of the loop"); // Jump back to start
+        int loopEndLoc = emitLoc; // Location after loop body
+        
+        emitBackup(jumpToEndLoc); 
+        emitRM_Abs("JEQ", ac, loopEndLoc, "Jump to end of loop if condition is false"); // Correct backpatching
         emitRestore();
 
         emitComment("end of while loop");
@@ -406,6 +416,67 @@ private void updateHighEmitLoc() {
         emitComment("end of return");
     }
 
+    @Override
+    public void visit(CallExp callExp, int level, boolean isAddr) {
+    // Debug output to list functions in the directory before checking a specific function call
+    // System.out.println("[Debug] Current functionDirectory contents:");
+    // functionDirectory.forEach((funcName, entryPoint) -> System.out.println(funcName + " -> " + entryPoint));
+        emitComment("CallExp: " + callExp.func);
+        // Step 1: Evaluate arguments and store their results on the stack.
+        if ("input".equals(callExp.func)) {
+            // Emit code for reading an integer value from standard input.
+            emitRO("IN", ac, 0, 0, "input integer value");
+        } else if ("output".equals(callExp.func)) {
+            // Evaluate the single argument for output.
+            callExp.args.accept(this, level + 1, false); // Assuming the argument to output is pushed onto the stack or placed in a register
+            emitRO("OUT", ac, 0, 0, "output integer value");
+        }
+
+        // emitComment("CallExp: " + callExp.func);
+        // if (callExp.func.equals("input")) {
+        //     emitRO("IN", ac, 0, 0, "read integer value");
+        //     return; // Exit the method early as we don't need to handle arguments or jump to a function.
+        // } else if (callExp.func.equals("output")) {
+        //     if (callExp.args != null) {
+        //         callExp.args.head.accept(this, level + 1, false);
+        //         emitRO("OUT", ac, 0, 0, "output integer value");
+        //     }
+        //     return; // Exit after handling output.
+        // }
+
+        ExpList argList = callExp.args;
+        int argCount = 0;
+        while (argList != null && argList.head != null) {
+            argList.head.accept(this, level + 1, false); // Evaluate and result in 'ac'
+            // Assuming each argument's result is now in 'ac', push it onto the stack.
+            emitRM("ST", ac, --globalOffset, mp, "push argument for " + callExp.func);
+            argList = argList.tail;
+            argCount++;
+        }
+
+        // Safety check for function existence in the directory
+        if (!functionDirectory.containsKey(callExp.func)) {
+            System.err.println("Undefined function call to " + callExp.func);
+            return; // Early return or handle undefined function more gracefully
+        }
+
+        // Step 2: Jump to the function's code.
+        int funcEntry = functionDirectory.get(callExp.func);
+        emitComment("Function call to " + callExp.func);
+        emitRM("LDA", pc, funcEntry - (currentLocation + 1), pc, "jump to function " + callExp.func);
+
+        // Consideration for function return process
+        emitComment("Function call " + callExp.func + " return");
+        // Assuming functions return the result in 'ac' and that we need to adjust the stack pointer back after the call
+        emitRM("LDA", sp, argCount, sp, "adjust sp back after function call " + callExp.func);
+
+        // If the call expression itself is used in a larger expression and expects an address
+        if (isAddr) {
+            // You might need to handle this scenario based on your language's semantics and the capabilities of the TM simulator.
+            // This might involve storing the result in a temporary location or handling it differently.
+            emitComment("Handling function return as an address might not be directly supported and needs specific handling");
+        }
+    }
     @Override
     public void visit(VarExp varExp, int level, boolean isAddr) {
         // emitComment("VarExp: " + varExp.variable.name);
@@ -485,66 +556,13 @@ private void updateHighEmitLoc() {
         }
     }
 
-
-    @Override
-    public void visit(CallExp callExp, int level, boolean isAddr) {
-        emitComment("CallExp: " + callExp.func);
-
-        // Step 1: Evaluate arguments and store their results on the stack.
-        if (callExp.func.equals("input")) {
-            // Emit code for reading an integer value from standard input.
-            emitRO("IN", ac, 0, 0, "read integer value");
-            return; // Exit the method early as we don't need to handle arguments or jump to a function.
-        } else if (callExp.func.equals("output")) {
-            // Evaluate the single argument for output.
-            if (callExp.args != null) {
-                callExp.args.head.accept(this, level + 1, false);
-                emitRO("OUT", ac, 0, 0, "output integer value");
-            }
-            return; // Exit after handling output.
-        }
-
-        ExpList argList = callExp.args;
-        int argCount = 0;
-        while (argList != null && argList.head != null) {
-            argList.head.accept(this, level + 1, false); // Evaluate and result in 'ac'
-            // Assuming each argument's result is now in 'ac', push it onto the stack.
-            emitRM("ST", ac, --globalOffset, mp, "push argument for " + callExp.func);
-            argList = argList.tail;
-            argCount++;
-        }
-
-        // Safety check for function existence in the directory
-        if (!functionDirectory.containsKey(callExp.func)) {
-            System.err.println("Undefined function call to " + callExp.func);
-            return; // Early return or handle undefined function more gracefully
-        }
-
-        // Step 2: Jump to the function's code.
-        int funcEntry = functionDirectory.get(callExp.func);
-        emitComment("Function call to " + callExp.func);
-        emitRM("LDA", pc, funcEntry - (currentLocation + 1), pc, "jump to function " + callExp.func);
-
-        // Consideration for function return process
-        emitComment("Function call " + callExp.func + " return");
-        // Assuming functions return the result in 'ac' and that we need to adjust the stack pointer back after the call
-        emitRM("LDA", sp, argCount, sp, "adjust sp back after function call " + callExp.func);
-
-        // If the call expression itself is used in a larger expression and expects an address
-        if (isAddr) {
-            // You might need to handle this scenario based on your language's semantics and the capabilities of the TM simulator.
-            // This might involve storing the result in a temporary location or handling it differently.
-            emitComment("Handling function return as an address might not be directly supported and needs specific handling");
-        }
-    }
-
     private int getVariableOffset(String varName, int level) {
         // Placeholder for the actual offset retrieval logic.
-        // int offset = 0;
+        int offset = 0;
 
-        // // Example of querying a symbol table. The actual implementation would depend on
-        // // how the symbol table is structured and how scope levels are managed.
-        // //symbolTableEntry entry = symbolTable.lookup(varName);
+        // Example of querying a symbol table. The actual implementation would depend on
+        // how the symbol table is structured and how scope levels are managed.
+        //symbolTableEntry entry = symbolTable.lookup(varName);
         // if (entry != null) {
         //     // Check if the variable is in the current scope or any enclosing scope up to the global scope.
         //     while (entry != null && entry.level > level) {
@@ -561,8 +579,6 @@ private void updateHighEmitLoc() {
         //     System.err.println("Error: Variable '" + varName + "' not declared.");
         // }
 
-        //return offset;
-
-        return 1;
+        return 1;//offset;
     }
 }
