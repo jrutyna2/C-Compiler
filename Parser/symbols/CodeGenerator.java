@@ -77,20 +77,6 @@ public class CodeGenerator implements AbsynVisitor {
     //     emitFinale();
     // }
 
-    @Override
-    public void visit(Program program, int level, boolean isAddr){
-        emitPrelude();
-        emitComment("C- compilation to TM code");
-
-        if (program.declarations != null) {
-            program.declarations.accept(this, level, false);
-        }
-        // You might want to emit a HALT instruction at the end of the program
-        emitRO("HALT", 0, 0, 0, "End of program");
-        emitFinale();
-    }
-
-
 private void emitComment(String comment) {
     codeBuilder.append("* ").append(comment).append("\n");
 }
@@ -152,6 +138,19 @@ private void updateHighEmitLoc() {
     }
 
     @Override
+    public void visit(Program program, int level, boolean isAddr){
+        emitPrelude();
+        emitComment("C- compilation to TM code");
+
+        if (program.declarations != null) {
+            program.declarations.accept(this, level, false);
+        }
+        // You might want to emit a HALT instruction at the end of the program
+        emitRO("HALT", 0, 0, 0, "End of program");
+        emitFinale();
+    }
+
+    @Override
     public void visit(DecList decList, int level, boolean isAddr) {
         while (decList != null && decList.head != null) {
             decList.head.accept(this, level + 1, false);
@@ -160,8 +159,49 @@ private void updateHighEmitLoc() {
     }
 
     @Override
+    public void visit(FunDec funDec, int level, boolean isAddr) {
+        if (funDec.funcName.equals("main")) {
+            mainEntry = emitSkip(0); // Mark the start of the main function
+            emitComment("Start of main function");
+        } else {
+            // Handle other functions
+            functionDirectory.put(funDec.funcName, emitSkip(0));
+            emitComment("Function declaration: " + funDec.funcName);
+        }
+
+        // Handle function arguments and body
+        if (funDec.params != null) {
+            funDec.params.accept(this, level + 1, false);
+        }
+        if (funDec.body != null) {
+            funDec.body.accept(this, level + 1, false);
+        }
+        // Function return or end
+        emitComment("End of function: " + funDec.funcName);
+        if (funDec.funcName.equals("main")) {
+            emitRO("HALT", 0, 0, 0, "End of program execution");
+        }
+    }
+    // @Override
+    // public void visit(FunDec funDec, int level, boolean isAddr) {
+    //     //int funcEntry = emitSkip(0); // Save the current location as the function's entry point
+    //     // functionDirectory.put(funcDec.funcName, funcEntry);
+    //         emitComment("Function: " + funDec.funcName + " entry point");
+    //         if ("main".equals(funDec.funcName)) {
+    //             mainEntry = emitLoc; // Record the start of main
+    //         }
+    //     // emitComment("Function: " + funcDec.funcName + " entry point");
+    //     // emitComment("Function: " + funDec.name);
+    //     emitComment("Prologue: Start function");
+    //     // emitRM("ST", 0, -1, fp, "Store return address");
+    //     // emitRM("LDA", fp, -1, fp, "Adjust fp");
+    //     // emitRM("LDA", ac, 1, pc, "Load ac with return address");
+    //     // emitRM_Abs("LDA", pc, funDec.entry, "Jump to function entry");
+    //     // emitComment("Function: " + funDec.funcName + " ends here");
+    // }
+
+    @Override
     public void visit(AssignExp assignExp, int level, boolean isAddr) {
-        
         assignExp.rhs.accept(this, level, false); // Evaluate the RHS expression first, result in `ac`
         // Now handle the LHS as a location where we need to store the result
         if (assignExp.lhs instanceof VarExp) {
@@ -174,7 +214,6 @@ private void updateHighEmitLoc() {
         }
         }
     }
-
 
     @Override
     public void visit(IntExp intExp, int level, boolean isAddr) {
@@ -249,48 +288,6 @@ private void updateHighEmitLoc() {
             emitRM("ST", ac, globalOffset, gp, "Store global variable " + simpleDec.name);
         }
     }
-
-    @Override
-    public void visit(FunDec funDec, int level, boolean isAddr) {
-    if (funDec.funcName.equals("main")) {
-        mainEntry = emitSkip(0); // Mark the start of the main function
-        emitComment("Start of main function");
-    } else {
-        // Handle other functions
-        functionDirectory.put(funDec.funcName, emitSkip(0));
-        emitComment("Function declaration: " + funDec.funcName);
-    }
-
-    // Handle function arguments and body
-    if (funDec.params != null) {
-        funDec.params.accept(this, level + 1, false);
-    }
-    if (funDec.body != null) {
-        funDec.body.accept(this, level + 1, false);
-    }
-    // Function return or end
-    emitComment("End of function: " + funDec.funcName);
-    if (funDec.funcName.equals("main")) {
-        emitRO("HALT", 0, 0, 0, "End of program execution");
-    }
-}
-    // @Override
-    // public void visit(FunDec funDec, int level, boolean isAddr) {
-    //     //int funcEntry = emitSkip(0); // Save the current location as the function's entry point
-    //     // functionDirectory.put(funcDec.funcName, funcEntry);
-    //         emitComment("Function: " + funDec.funcName + " entry point");
-    //         if ("main".equals(funDec.funcName)) {
-    //             mainEntry = emitLoc; // Record the start of main
-    //         }
-    //     // emitComment("Function: " + funcDec.funcName + " entry point");
-    //     // emitComment("Function: " + funDec.name);
-    //     emitComment("Prologue: Start function");
-    //     // emitRM("ST", 0, -1, fp, "Store return address");
-    //     // emitRM("LDA", fp, -1, fp, "Adjust fp");
-    //     // emitRM("LDA", ac, 1, pc, "Load ac with return address");
-    //     // emitRM_Abs("LDA", pc, funDec.entry, "Jump to function entry");
-    //     // emitComment("Function: " + funDec.funcName + " ends here");
-    // }
     
     @Override
     public void visit(ArrayDec arrayDec, int level, boolean isAddr) {

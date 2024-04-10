@@ -22,7 +22,7 @@ public class SemanticAnalyzer implements AbsynVisitor {
 
     private void indent(int level) {
         for(int i = 0; i < level; i++) {
-            builder.append("  "); // Assuming 2 spaces for each indentation level
+            builder.append("  "); // 2 spaces for each indentation level
         }
     }
 

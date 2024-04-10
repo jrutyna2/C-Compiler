@@ -56,7 +56,7 @@ public void exitScope(int level, boolean isFunctionScope, boolean isBlockScope, 
 }
 
 private String getIndent(int level) {
-    return "    ".repeat(Math.max(0, level)); // Returns a string of spaces for indentation
+    return "  ".repeat(Math.max(0, level)); // Returns a string of spaces for indentation
 }
 
     // public void enterScope(int level, String functionName) {
