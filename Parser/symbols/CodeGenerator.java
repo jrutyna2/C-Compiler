@@ -39,7 +39,6 @@ public class CodeGenerator implements AbsynVisitor {
         return codeBuilder.toString();
     }
 
-
     private void incrementEmitLoc() {
         emitLoc++;
         if (highEmitLoc < emitLoc) {

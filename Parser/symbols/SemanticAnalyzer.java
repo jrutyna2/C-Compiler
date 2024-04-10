@@ -81,7 +81,7 @@ public void visit(Program program, int level, boolean isAddr) {
     }
     
     // 5. Exit the nested scope to return to the global scope
-    // symbolTable.exitScope(level - 1, false, null);
+    // symbolTable.exitScope(level + 1, false, null);
 
     // Optional: Perform any global-scope specific finalizations here if needed
 
@@ -154,7 +154,7 @@ public void visit(Program program, int level, boolean isAddr) {
 
         // Exit the function's local scope after processing its body and parameters
         isInGlobalScope = true;    
-        symbolTable.exitScope(level - 1, true, false, funDec.funcName);
+        symbolTable.exitScope(level + 1, true, false, funDec.funcName);
     }
 
     @Override
@@ -286,7 +286,7 @@ public void visit(Program program, int level, boolean isAddr) {
         }
 
         // Exit the scope for the compound statement
-        symbolTable.exitScope(level - 1, false, true, null);
+        symbolTable.exitScope(level + 1, false, true, null);
     }
 
     @Override
@@ -303,7 +303,7 @@ public void visit(Program program, int level, boolean isAddr) {
             boolean isThenBlock = ifExp.thenClause instanceof CompoundExp;
             symbolTable.enterScope(level + 1, null, isThenBlock);
             ifExp.thenClause.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level - 1, false, isThenBlock, null);
+            symbolTable.exitScope(level + 1, false, isThenBlock, null);
         }
 
         // And the else clause, if it exists
@@ -311,7 +311,7 @@ public void visit(Program program, int level, boolean isAddr) {
             boolean isElseBlock = ifExp.elseClause instanceof CompoundExp;
             symbolTable.enterScope(level + 1, null, isElseBlock);
             ifExp.elseClause.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level - 1, false, isElseBlock, null);
+            symbolTable.exitScope(level + 1, false, isElseBlock, null);
         }
     }
 
@@ -329,7 +329,7 @@ public void visit(Program program, int level, boolean isAddr) {
             boolean isBodyBlock = whileExp.body instanceof CompoundExp;
             symbolTable.enterScope(level + 1, null, isBodyBlock);
             whileExp.body.accept(this, level + 1, isAddr);
-            symbolTable.exitScope(level - 1, false, isBodyBlock, currentFunctionName);
+            symbolTable.exitScope(level + 1, false, isBodyBlock, currentFunctionName);
         }
     }
 
