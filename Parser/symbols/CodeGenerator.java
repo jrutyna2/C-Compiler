@@ -13,7 +13,7 @@ public class CodeGenerator implements AbsynVisitor {
     private int highEmitLoc = 0; // highest emit location for temporary variables
     private int gp = 0; // global Pointer register in TM
     private int mp = 1; // memory pointer points to top of memory (for temp storage)
-    private int fp = 2; // frame Pointer register in TM
+    private int fp = 5; // frame Pointer register in TM
     private int ac = 0; // Accumulator register in TM for expression evaluation
     private int ac1 = 1; // second accumulator register in TM
     private static final int pc = 7; // Assuming register 7 is the program counter
@@ -35,6 +35,32 @@ public class CodeGenerator implements AbsynVisitor {
 
     public String getGeneratedCode() {
         return codeBuilder.toString();
+    }
+
+    private void emitStandardPrelude() {
+        emitComment("Standard prelude:");
+        emitRM("LD", 6, 0, 0, "load gp with maxaddress");
+        emitRM("LDA", 5, 0, 6, "copy to gp to fp");
+        emitRM("ST", 0, 0, 0, "clear location 0");
+        emitComment("End of standard prelude.");
+    }
+
+    private void emitIORoutines() {
+        emitComment("code for input routine");
+        emitRM("ST", ac, -1, fp, "store return");
+        emitRO("IN", ac, 0, 0, "input");
+        emitRM("LD", pc, -1, fp, "return to caller");
+
+        emitComment("code for output routine");
+        emitRM("ST", ac, -1, fp, "store return");
+        emitRM("LD", ac, -2, fp, "load output value");
+        emitRO("OUT", ac, 0, 0, "output");
+        emitRM("LD", pc, -1, fp, "return to caller");
+    }
+
+    private void emitJumpAroundIOCode(int jumpTarget) {
+        // Placeholder for the actual method to emit an absolute jump instruction
+        emitRM_Abs("LDA", pc, jumpTarget, "Jump around I/O routines to start of main program");
     }
 
     @Override
@@ -128,6 +154,35 @@ public class CodeGenerator implements AbsynVisitor {
     //     // emitComment("Function: " + funDec.funcName + " ends here");
     // }
 
+    //to visit variable and array declarations
+    @Override
+    public void visit(SimpleDec simpleDec, int level, boolean isAddr) {
+        if (level == 0) {
+            emitComment("Global variable: " + simpleDec.name);
+            globalOffset--; // Adjust globalOffset for the new global variable
+            // Example: initialize global variable to 0
+            emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0");
+            emitRM("ST", ac, globalOffset, gp, "Store global variable " + simpleDec.name);
+        }
+    }
+    
+    @Override
+    public void visit(ArrayDec arrayDec, int level, boolean isAddr) {
+        if (level == 0) { // Assuming global array
+            emitComment("Global array: " + arrayDec.name);
+            // Allocate space; assuming each element is 1 memory cell
+            emitRM("LDC", ac, arrayDec.size, 0, "load array size");
+            emitRM("ST", ac, globalOffset--, gp, "store array size at global offset");
+            for (int i = 0; i < arrayDec.size; i++) {
+                emitRM("LDC", ac, 0, 0, "initialize to 0");
+                emitRM("ST", ac, globalOffset--, gp, "init array element");
+            }
+        } else {
+            // For local arrays, you'd adjust the mp (memory pointer) accordingly
+            // This is more complex and involves runtime memory management
+            emitComment("Local arrays not implemented in this example");
+        }
+    }
     // @Override
     // public void visit(AssignExp assignExp, int level, boolean isAddr) {
     //     assignExp.rhs.accept(this, level, false); // Evaluate the RHS expression first, result in `ac`
@@ -142,29 +197,46 @@ public class CodeGenerator implements AbsynVisitor {
     //     }
     //     }
     // }
+
 @Override
 public void visit(AssignExp assignExp, int level, boolean isAddr) {
-    assignExp.rhs.accept(this, level, false); // Evaluate the RHS expression first, result in `ac`
-    
-    // Now handle the LHS as a location where we need to store the result
-    if (assignExp.lhs instanceof SimpleVar) {
-        SimpleVar simpleVar = (SimpleVar) assignExp.lhs;
-        // Assuming `getVariableOffset` correctly calculates the offset for the variable
-        int offset = getVariableOffset(simpleVar.name, level); // This method needs to be implemented
-        
-        // Determine the base register for the variable's scope
-        int baseReg = (level == 0 ? gp : fp);
-        
-        // If isAddr is true, load the address of LHS to `ac`, otherwise store `ac`'s value at LHS
-        if (isAddr) {
-            emitRM("LDA", ac, offset, baseReg, "Assign: load address of lhs");
-        } else {
-            emitRM("ST", ac, offset, baseReg, "Assign: store value");
-        }
-    } else {
-        // Handle other types of LHS expressions, such as array indexing
+    // Evaluate RHS
+    assignExp.rhs.accept(this, level, false);
+    // Assuming global variables start at a fixed offset and local variables use a stack-like allocation
+    int offset;
+    if (level == 0) { // Global variable
+        offset = globalOffset++;
+    } else { // Local variable
+        offset = --localVarOffset; // Allocate from the current frame pointer
     }
+    // Determine the base register for global vs. local scope
+    int baseReg = (level == 0) ? gp : fp;
+    // Now handle the LHS to store the result
+    assignExp.lhs.accept(this, level, true); // Accept with isAddr = true, assuming it sets up for an address
+    emitRM("ST", ac, offset, baseReg, "Assign: store value");
 }
+
+// @Override
+// public void visit(AssignExp assignExp, int level, boolean isAddr) {
+//     // Evaluate the RHS expression first, result in `ac`
+//     assignExp.rhs.accept(this, level, false);
+    
+//     // Now handle the LHS as a location where we need to store the result
+//     if (assignExp.lhs instanceof SimpleVar) {
+//         SimpleVar simpleVar = (SimpleVar) assignExp.lhs;
+//         boolean isGlobal = symbolTable.isGlobal(simpleVar.name);
+//         int offset = symbolTable.getOffset(simpleVar.name);
+        
+//         if (isGlobal) {
+//             // For global variables, use the gp (global pointer) as the base
+//             emitRM("ST", ac, offset, gp, "Assign: store value in global variable");
+//         } else {
+//             // For local variables, use the fp (frame pointer) as the base and adjust by current stack frame level
+//             emitRM("ST", ac, calculateLocalOffset(offset, level), fp, "Assign: store value in local variable");
+//         }
+//     }
+//     // Additional handling for more complex LHS expressions if needed
+// }
 
     @Override
     public void visit(IntExp intExp, int level, boolean isAddr) {
@@ -194,11 +266,6 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
     @Override
     public void visit(ErrorDec errorDec, int level, boolean isAddr) {
         //for error handling
-       //for error handling
-    }
-
-    public void CodeGenerator(Program program) {
-        program.accept(this, 0, false);
     }
 
     @Override
@@ -268,40 +335,10 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
         }
     }
 
-    //to visit variable and array declarations
-    @Override
-    public void visit(SimpleDec simpleDec, int level, boolean isAddr) {
-        if (level == 0) {
-            emitComment("Global variable: " + simpleDec.name);
-            globalOffset--; // Adjust globalOffset for the new global variable
-            // Example: initialize global variable to 0
-            emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0");
-            emitRM("ST", ac, globalOffset, gp, "Store global variable " + simpleDec.name);
-        }
-    }
-    
-    @Override
-    public void visit(ArrayDec arrayDec, int level, boolean isAddr) {
-        if (level == 0) { // Assuming global array
-            emitComment("Global array: " + arrayDec.name);
-            // Allocate space; assuming each element is 1 memory cell
-            emitRM("LDC", ac, arrayDec.size, 0, "load array size");
-            emitRM("ST", ac, globalOffset--, gp, "store array size at global offset");
-            for (int i = 0; i < arrayDec.size; i++) {
-                emitRM("LDC", ac, 0, 0, "initialize to 0");
-                emitRM("ST", ac, globalOffset--, gp, "init array element");
-            }
-        } else {
-            // For local arrays, you'd adjust the mp (memory pointer) accordingly
-            // This is more complex and involves runtime memory management
-            emitComment("Local arrays not implemented in this example");
-        }
-    }
-
     @Override
     public void visit(NameTy nameTy, int level, boolean isAddr) {
         // This might not produce direct assembly code but could set context
-        emitComment("Type: " + (nameTy.typ == NameTy.INT ? "int" : "void"));
+        emitComment("NameTy:/tType: " + (nameTy.typ == NameTy.INT ? "int" : "void"));
     }
 
     @Override
@@ -400,18 +437,6 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
             emitRO("OUT", ac, 0, 0, "output integer value");
         }
 
-        // emitComment("CallExp: " + callExp.func);
-        // if (callExp.func.equals("input")) {
-        //     emitRO("IN", ac, 0, 0, "read integer value");
-        //     return; // Exit the method early as we don't need to handle arguments or jump to a function.
-        // } else if (callExp.func.equals("output")) {
-        //     if (callExp.args != null) {
-        //         callExp.args.head.accept(this, level + 1, false);
-        //         emitRO("OUT", ac, 0, 0, "output integer value");
-        //     }
-        //     return; // Exit after handling output.
-        // }
-
         ExpList argList = callExp.args;
         int argCount = 0;
         while (argList != null && argList.head != null) {
@@ -445,6 +470,7 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
             emitComment("Handling function return as an address might not be directly supported and needs specific handling");
         }
     }
+
     @Override
     public void visit(VarExp varExp, int level, boolean isAddr) {
         // emitComment("VarExp: " + varExp.variable.name);
@@ -524,6 +550,20 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
         }
     }
 
+
+/**
+ * Calculates the memory offset for a local variable relative to the current stack frame.
+ * @param baseOffset The base offset of the variable within its declared scope.
+ * @param level The current nesting level or scope level.
+ * @return The adjusted offset relative to the frame pointer (fp).
+ */
+private int calculateLocalOffset(int baseOffset, int level) {
+    // This method adjusts the baseOffset based on the current level.
+    // Implement the logic based on how your stack frames are organized.
+    // This is a placeholder for illustration.
+    return baseOffset - (level * FRAME_SIZE); // FRAME_SIZE would be a constant representing the size of a stack frame.
+}
+
     private int getVariableOffset(String varName, int level) {
         // Placeholder for the actual offset retrieval logic.
         int offset = 0;
@@ -582,19 +622,6 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
         // Additional setup for parameters and local variables could be emitted here
     }
 
-    // @Override
-    // public void visit(Absyn trees, int level) {
-    //     // Generate the prelude
-    //     emitComment("TM code for C- program");
-    //     emitPrelude();
-
-    //     // Visit the entire AST
-    //     trees.accept(this, 0, false);
-
-    //     // Generate finale code
-    //     emitFinale();
-    // }
-
     private void emitComment(String comment) {
         codeBuilder.append("* ").append(comment).append("\n");
     }
@@ -616,32 +643,6 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
 
     private void updateHighEmitLoc() {
         if (emitLoc > highEmitLoc) highEmitLoc = emitLoc;
-    }
-
-    private void emitStandardPrelude() {
-        emitComment("Standard prelude:");
-        emitRM("LD", 6, 0, 0, "load gp with maxaddress");
-        emitRM("LDA", 5, 0, 6, "copy to gp to fp");
-        emitRM("ST", 0, 0, 0, "clear location 0");
-        emitComment("End of standard prelude.");
-    }
-
-    private void emitIORoutines() {
-        emitComment("code for input routine");
-        emitRM("ST", ac, -1, fp, "store return");
-        emitRO("IN", ac, 0, 0, "input");
-        emitRM("LD", pc, -1, fp, "return to caller");
-
-        emitComment("code for output routine");
-        emitRM("ST", ac, -1, fp, "store return");
-        emitRM("LD", ac, -2, fp, "load output value");
-        emitRO("OUT", ac, 0, 0, "output");
-        emitRM("LD", pc, -1, fp, "return to caller");
-    }
-
-    private void emitJumpAroundIOCode(int jumpTarget) {
-        // Placeholder for the actual method to emit an absolute jump instruction
-        emitRM_Abs("LDA", pc, jumpTarget, "Jump around I/O routines to start of main program");
     }
 
     private void emitFinale() {

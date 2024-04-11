@@ -77,20 +77,6 @@ class Main {
         return analyzer.getSymbolTable();
     }
 
-    // static SymbolTable performSemanticAnalysis(Absyn result, String baseFileName) {
-    //     System.out.println("Performing Semantic Analysis...");
-    //     // Instantiate the SemanticAnalyzer which includes creating a new SymbolTable internally
-    //     SemanticAnalyzer analyzer = new SemanticAnalyzer();
-    //     // Visit the AST with the SemanticAnalyzer to perform type checks and populate the symbol table
-    //     result.accept(analyzer, 0, false);
-    //     // Optionally, serialize and write the symbol table contents to a file
-    //     String symTableContents = analyzer.getSymbolTable().toString();
-    //     writeToFile(baseFileName + ".sym", symTableContents);
-    //     System.out.println("Semantic Analysis DONE");
-    //     // Return the populated SymbolTable for further use
-    //     return analyzer.getSymbolTable();
-    // }
-
     // Stub for the -c option. This needs to be implemented based on your project specifications.
     static void generateAndWriteTMCode(Absyn result, String baseFileName, SymbolTable symbolTable) {
         System.out.println("Starting Code Generation...");

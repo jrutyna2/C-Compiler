@@ -143,22 +143,22 @@ private String getIndent(int level) {
         }
         System.out.println("\n");
     }
-
-    public String toStringRepresentation() {
-        StringBuilder sb = new StringBuilder();
-        int scopeLevel = 0;
-        for (HashMap<String, NodeType> scope : allScopes) {
-            sb.append("Scope level: ").append(scopeLevel++).append("\n");
-            for (Map.Entry<String, NodeType> entry : scope.entrySet()) {
-                String symbol = entry.getKey();
-                NodeType nodeType = entry.getValue();
-                String typeString = mapDecToSimpleType(nodeType.dec);
-                sb.append("    ").append(symbol).append(": ").append(typeString).append("\n");
-            }
-            sb.append("\n");
+public String toStringRepresentation() {
+    StringBuilder sb = new StringBuilder();
+    int scopeLevel = allScopes.size() - 1; // Start from the highest level
+    for (int i = allScopes.size() - 1; i >= 0; i--) { // Reverse iteration
+        HashMap<String, NodeType> scope = allScopes.get(i);
+        sb.append("Scope level: ").append(scopeLevel--).append("\n");
+        for (Map.Entry<String, NodeType> entry : scope.entrySet()) {
+            String symbol = entry.getKey();
+            NodeType nodeType = entry.getValue();
+            String typeString = mapDecToSimpleType(nodeType.dec);
+            sb.append("    ").append(symbol).append(": ").append(typeString).append("\n");
         }
-        return sb.toString();
+        sb.append("\n");
     }
+    return sb.toString();
+}
 
     public String mapDecToSimpleType(Dec dec) {
         // Handling simple variable declarations
