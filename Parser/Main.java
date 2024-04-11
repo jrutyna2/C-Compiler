@@ -97,8 +97,13 @@ class Main {
         CodeGenerator codeGenerator = new CodeGenerator(symbolTable);
         // codeGenerator.generateCode(result); // Assuming `generateCode` starts the code generation process
         result.accept(codeGenerator, 0, false); // Pass the AST for traversal and code generation
+
         String tmCode = codeGenerator.getGeneratedCode();
+        // Prepend comments with the file name and intro
+        String headerComment = "* C-Minus Compilation to TM Code\n" + "* File: " + baseFileName + ".tm\n";
+        tmCode = headerComment + tmCode; // Add the header comments to the beginning of the TM code
         writeToFile(baseFileName + ".tm", tmCode);
+
         System.out.println("Code Generation DONE");
         System.out.println(tmCode);
     }

@@ -29,11 +29,6 @@ public class CodeGenerator implements AbsynVisitor {
     private SymbolTable symbolTable;
     private StringBuilder codeBuilder = new StringBuilder();
 
-
-    // public CodeGenerator(SymbolTable symbolTable, Program program) {
-    //     this.symbolTable = symbolTable;
-    //     program.accept(this, 0, false);
-    // }
     public CodeGenerator(SymbolTable symbolTable) {
         this.symbolTable = symbolTable;
     }
@@ -42,139 +37,49 @@ public class CodeGenerator implements AbsynVisitor {
         return codeBuilder.toString();
     }
 
-    private void incrementEmitLoc() {
-        emitLoc++;
-        if (highEmitLoc < emitLoc) {
-            highEmitLoc = emitLoc;
-        }
-    }
-
-    public void emitFunctionExit() {
-        emitComment("Exiting current function");
-        emitRM("LD", 5, 0, 5, "Restore old fp");
-    }
-
-    public void setGlobalOffset(int offset) {
-        this.globalOffset = offset;
-    }
-
-    public void emitFunctionEntry(String functionName, int localVariablesCount) {
-        int frameOffset = -2 - localVariablesCount; // Adjust for 'ofp' and 'return addr', and local variables
-        emitComment(String.format("Entering function: %s with frameOffset %d", functionName, frameOffset));
-        // Emit TM instructions to adjust fp and allocate space for locals
-        emitRM("ST", 5, globalOffset + (-1), 5, "Store old fp at top of frame");
-        emitRM("LDA", 5, frameOffset, 5, "Adjust fp for new frame");
-        // Additional setup for parameters and local variables could be emitted here
-    }
-
-    // @Override
-    // public void visit(Absyn trees, int level) {
-    //     // Generate the prelude
-    //     emitComment("TM code for C- program");
-    //     emitPrelude();
-
-    //     // Visit the entire AST
-    //     trees.accept(this, 0, false);
-
-    //     // Generate finale code
-    //     emitFinale();
-    // }
-
-private void emitComment(String comment) {
-    codeBuilder.append("* ").append(comment).append("\n");
-}
-
-private void emitRO(String op, int r, int s, int t, String comment) {
-    codeBuilder.append(String.format("%3d:  %5s  %d,%d,%d \t%s\n", emitLoc++, op, r, s, t, comment));
-    updateHighEmitLoc();
-}
-
-private void emitRM(String op, int r, int d, int s, String comment) {
-    codeBuilder.append(String.format("%3d:  %5s  %d,%d(%d) \t%s\n", emitLoc++, op, r, d, s, comment));
-    updateHighEmitLoc();
-}
-
-private void emitRM_Abs(String op, int r, int a, String comment) {
-    codeBuilder.append(String.format("%3d:  %5s  %d,%d(%d) \t%s\n", emitLoc++, op, r, a - (emitLoc + 1), pc, comment));
-    updateHighEmitLoc();
-}
-
-private void updateHighEmitLoc() {
-    if (emitLoc > highEmitLoc) highEmitLoc = emitLoc;
-}
-
-    private void emitPrelude() {
-        emitComment("Standard prelude:");
-        emitRO("LD", 6, 0, 0, "load gp with maxaddress");
-        emitRO("LDA", 5, 0, 6, "copy to gp to fp");
-        emitRO("ST", 0, 0, 0, "clear location 0");
-        // Jump around I/O code logic here...
-        emitComment("End of standard prelude.");
-    }
-
-    private void emitFinale() {
-        emitComment("End of execution.");
-        emitRO("HALT", 0, 0, 0, "");
-    }
-
-    // Skips a certain number of locations in the assembly output.
-    public int emitSkip(int amount) {
-        int oldLocation = emitLoc;
-        emitLoc += amount;
-        if (highEmitLoc < emitLoc) {
-            highEmitLoc = emitLoc;
-        }
-        return oldLocation;
-    }
-
-    // Moves the current location counter backward for backpatching purposes.
-    public void emitBackup(int loc) {
-        backupStack.push(emitLoc);
-        emitLoc = loc;
-    }
-
-    // Restores the current location counter to the most recently backed-up position.
-    public void emitRestore() {
-        if (!backupStack.isEmpty()) {
-            emitLoc = backupStack.pop();
-        }
-    }
-
     @Override
-    public void visit(Program program, int level, boolean isAddr){
-        emitPrelude();
+    public void visit(Program program, int level, boolean isAddr) {
+        // Emit the standard prelude first
+        emitStandardPrelude();
+        // Reserve space for jump instruction to skip around I/O code
+        int jumpInstLoc = emitLoc; // Record the location for backpatching
+        emitSkip(1); // Effectively reserves space by incrementing emitLoc
+        // Emit predefined I/O routines immediately after the prelude
+        emitIORoutines();
+        // Now backpatch the jump instruction to skip over I/O routines
+        int mainStartLoc = emitLoc; // Use emitLoc directly as the current location
+        emitBackup(jumpInstLoc); // Move back to the jump instruction's location
+        // Assuming 'LDA pc, offset(pc)' is how you've structured jump instructions...
+        emitRM("LDA", pc, mainStartLoc - (jumpInstLoc + 1), pc, "Jump around I/O routines to the start of the main program");
+        emitRestore(); // Return to the current location to continue code generation
         emitComment("C- compilation to TM code");
-
+        // Process the program declarations and statements
         if (program.declarations != null) {
             program.declarations.accept(this, level, false);
         }
-        // You might want to emit a HALT instruction at the end of the program
-        emitRO("HALT", 0, 0, 0, "End of program");
+        // Emit a HALT instruction at the end of the program
+        emitRO("HALT", 0, 0, 0, "End of program execution");
+        // Emit any finale code if needed (optional, depending on your code structure)
+        // This might include finalization logic or cleanup, if applicable
         emitFinale();
     }
-// @Override
-// public void visit(DecList decList, int level, boolean isAddr) {
-//     while (decList != null && decList.head != null) {
-//         decList.head.accept(this, level + 1, false);
-//         decList = decList.tail;
-//     }
-// }
-@Override
-public void visit(DecList decList, int level, boolean isAddr) {
-    // Initialize a stack to hold the declarations
-    Deque<Dec> stack = new ArrayDeque<>();
-    // Traverse the DecList and push each declaration onto the stack
-    while (decList != null && decList.head != null) {
-        stack.push(decList.head);
-        decList = decList.tail;
+
+    @Override
+    public void visit(DecList decList, int level, boolean isAddr) {
+        // Initialize a stack to hold the declarations
+        Deque<Dec> stack = new ArrayDeque<>();
+        // Traverse the DecList and push each declaration onto the stack
+        while (decList != null && decList.head != null) {
+            stack.push(decList.head);
+            decList = decList.tail;
+        }
+        // Pop each declaration off the stack and visit it
+        // This ensures that declarations are processed in the order they appear in the source code
+        while (!stack.isEmpty()) {
+            Dec dec = stack.pop();
+            dec.accept(this, level + 1, isAddr);
+        }
     }
-    // Pop each declaration off the stack and visit it
-    // This ensures that declarations are processed in the order they appear in the source code
-    while (!stack.isEmpty()) {
-        Dec dec = stack.pop();
-        dec.accept(this, level + 1, isAddr);
-    }
-}
 
     @Override
     public void visit(FunDec funDec, int level, boolean isAddr) {
@@ -580,5 +485,127 @@ public void visit(DecList decList, int level, boolean isAddr) {
         // }
 
         return 1;//offset;
+    }
+
+    private void backpatchJump(int jumpLoc, int targetLoc) {
+        int offset = targetLoc - jumpLoc - 1;
+        emitBackup(jumpLoc); // Move back to the reserved jump instruction location
+        emitRM("LDA", pc, offset, pc, "Jump around I/O routines");
+        emitRestore(); // Return to the previous location in the emission sequence
+    }
+
+    private void incrementEmitLoc() {
+        emitLoc++;
+        if (highEmitLoc < emitLoc) {
+            highEmitLoc = emitLoc;
+        }
+    }
+
+    public void emitFunctionExit() {
+        emitComment("Exiting current function");
+        emitRM("LD", 5, 0, 5, "Restore old fp");
+    }
+
+    public void setGlobalOffset(int offset) {
+        this.globalOffset = offset;
+    }
+
+    public void emitFunctionEntry(String functionName, int localVariablesCount) {
+        int frameOffset = -2 - localVariablesCount; // Adjust for 'ofp' and 'return addr', and local variables
+        emitComment(String.format("Entering function: %s with frameOffset %d", functionName, frameOffset));
+        // Emit TM instructions to adjust fp and allocate space for locals
+        emitRM("ST", 5, globalOffset + (-1), 5, "Store old fp at top of frame");
+        emitRM("LDA", 5, frameOffset, 5, "Adjust fp for new frame");
+        // Additional setup for parameters and local variables could be emitted here
+    }
+
+    // @Override
+    // public void visit(Absyn trees, int level) {
+    //     // Generate the prelude
+    //     emitComment("TM code for C- program");
+    //     emitPrelude();
+
+    //     // Visit the entire AST
+    //     trees.accept(this, 0, false);
+
+    //     // Generate finale code
+    //     emitFinale();
+    // }
+
+    private void emitComment(String comment) {
+        codeBuilder.append("* ").append(comment).append("\n");
+    }
+
+    private void emitRO(String op, int r, int s, int t, String comment) {
+        codeBuilder.append(String.format("%3d:  %5s  %d,%d,%d \t%s\n", emitLoc++, op, r, s, t, comment));
+        updateHighEmitLoc();
+    }
+
+    private void emitRM(String op, int r, int d, int s, String comment) {
+        codeBuilder.append(String.format("%3d:  %5s  %d,%d(%d) \t%s\n", emitLoc++, op, r, d, s, comment));
+        updateHighEmitLoc();
+    }
+
+    private void emitRM_Abs(String op, int r, int a, String comment) {
+        codeBuilder.append(String.format("%3d:  %5s  %d,%d(%d) \t%s\n", emitLoc++, op, r, a - (emitLoc + 1), pc, comment));
+        updateHighEmitLoc();
+    }
+
+    private void updateHighEmitLoc() {
+        if (emitLoc > highEmitLoc) highEmitLoc = emitLoc;
+    }
+
+    private void emitStandardPrelude() {
+        emitComment("* Standard prelude:");
+        emitRM("LD", gp, 0, 0, "load gp with maxaddress");
+        emitRM("LDA", fp, 0, gp, "copy to gp to fp");
+        emitRM("ST", ac, 0, ac, "clear location 0");
+        emitComment("End of standard prelude.");
+    }
+
+    private void emitIORoutines() {
+        emitComment("code for input routine");
+        emitRM("ST", ac, -1, fp, "store return");
+        emitRO("IN", ac, 0, 0, "input");
+        emitRM("LD", pc, -1, fp, "return to caller");
+
+        emitComment("code for output routine");
+        emitRM("ST", ac, -1, fp, "store return");
+        emitRM("LD", ac, -2, fp, "load output value");
+        emitRO("OUT", ac, 0, 0, "output");
+        emitRM("LD", pc, -1, fp, "return to caller");
+    }
+
+    private void emitJumpAroundIOCode(int jumpTarget) {
+        // Placeholder for the actual method to emit an absolute jump instruction
+        emitRM_Abs("LDA", pc, jumpTarget, "Jump around I/O routines to start of main program");
+    }
+
+    private void emitFinale() {
+        emitComment("End of execution.");
+        emitRO("HALT", 0, 0, 0, "");
+    }
+
+    // Skips a certain number of locations in the assembly output.
+    public int emitSkip(int amount) {
+        int oldLocation = emitLoc;
+        emitLoc += amount;
+        if (highEmitLoc < emitLoc) {
+            highEmitLoc = emitLoc;
+        }
+        return oldLocation;
+    }
+
+    // Moves the current location counter backward for backpatching purposes.
+    public void emitBackup(int loc) {
+        backupStack.push(emitLoc);
+        emitLoc = loc;
+    }
+
+    // Restores the current location counter to the most recently backed-up position.
+    public void emitRestore() {
+        if (!backupStack.isEmpty()) {
+            emitLoc = backupStack.pop();
+        }
     }
 }
