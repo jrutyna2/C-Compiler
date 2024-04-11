@@ -1,8 +1,8 @@
 * C-Minus Compilation to TM Code
 * File: results/fac.tm
-* * Standard prelude:
-  0:     LD  0,0(0) 	load gp with maxaddress
-  1:    LDA  2,0(0) 	copy to gp to fp
+* Standard prelude:
+  0:     LD  6,0(0) 	load gp with maxaddress
+  1:    LDA  5,0(6) 	copy to gp to fp
   2:     ST  0,0(0) 	clear location 0
 * End of standard prelude.
 * code for input routine
@@ -27,31 +27,36 @@
  13:     ST  0,0(0) 	op: push left
  14:    LDC  0,1(0) 	load const
  15:     LD  1,0(1) 	op: load left
+ 16:    SUB  0,1,0 	op: >
+ 17:    JGT  0,2(7) 	branch if true
+ 18:    LDC  0,0(0) 	false case
+ 19:    LDA  7,1(7) 	unconditional jump
+ 20:    LDC  0,1(0) 	true case
 * Begin compound statement
 * Variable declarations in compound statement
 * Statements/Expressions in compound statement
- 17:     ST  0,0(0) 	op: push left
- 18:    LDC  0,1(0) 	load const
- 19:     LD  1,0(1) 	op: load left
- 20:    SUB  0,1,0 	op: -
- 21:     ST  0,1(2) 	Assign: store value
  22:     ST  0,0(0) 	op: push left
- 23:     LD  1,0(1) 	op: load left
- 24:    MUL  0,1,0 	op: *
- 25:     ST  0,1(2) 	Assign: store value
-* End compound statement
- 26:    LDA  7,-15(7) 	jump back to the start of the loop
- 16:    JEQ  0,9(7) 	Jump to end of loop if condition is false
-* end of while loop
- 27:    LDC  0,1(0) 	load const
- 28:     ST  0,1(2) 	Assign: store value
-* CallExp: input
- 29:     IN  0,0,0 	input integer value
+ 23:    LDC  0,1(0) 	load const
+ 24:     LD  1,0(1) 	op: load left
+ 25:    SUB  0,1,0 	op: -
+ 26:     ST  0,1(2) 	Assign: store value
+ 27:     ST  0,0(0) 	op: push left
+ 28:     LD  1,0(1) 	op: load left
+ 29:    MUL  0,1,0 	op: *
  30:     ST  0,1(2) 	Assign: store value
 * End compound statement
+ 31:    LDA  7,-20(7) 	jump back to the start of the loop
+ 21:    JEQ  0,9(7) 	Jump to end of loop if condition is false
+* end of while loop
+ 32:    LDC  0,1(0) 	load const
+ 33:     ST  0,1(2) 	Assign: store value
+* CallExp: input
+ 34:     IN  0,0,0 	input integer value
+ 35:     ST  0,1(2) 	Assign: store value
+* End compound statement
 * End of function: main
- 31:   HALT  0,0,0 	End of program execution
- 32:   HALT  0,0,0 	End of program execution
+ 36:   HALT  0,0,0 	End of program execution
+ 37:   HALT  0,0,0 	End of program execution
 * End of execution.
- 33:   HALT  0,0,0 	
+ 38:   HALT  0,0,0 	
 

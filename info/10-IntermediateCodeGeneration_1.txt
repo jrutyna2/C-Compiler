@@ -1,0 +1,91 @@
+Intermediate Code
+    Generation
+
+  CIS*4650 (Winter 2024)
+     Review
+§ Code generation: generate executable code for a
+  target machine
+                                        Intermediate                      Assembly
+                                           Code                            Code
+  AST’s              Intermediate                         Code
+                         Code                           Generator
+                      Generator
+                                          Assembly
+ Machine                                   Code          Code
+Executable             Assembler                        Optimizer
+  Code
+
+
+ Note that for Checkpoint Three, we will only implement ”Code Generator” and run the
+ assembly code on the “TM Simulator”. “Intermediate Code Generator” and ”Code
+ Optimizer” will be skipped for simplifications.
+                                                                                       2
+   Intermediate Representation (IR)
+§ Can be AST’s, but linear sequences with jumps are
+  more preferred
+                              Java
+ Java
+                                                              Sparc
+               Sparc          Ada
+ Ada
+                                                              MIPS
+               MIPS          Pascal            IR
+Pascal
+                                                          Pentium
+               Pentium         C
+  C
+                                                              Alpha
+               Alpha          C++
+ C++
+                                      Retargetable Solution
+                                                                      3
+     Three-Address Code
+§ Basic form: maximum of three addresses
+   • Compiler needs to generate names for temporary variables
+
+        x = y op z
+                                          +
+
+  address        value
+                                  *               -
+   e.g., 2 * a + (b – 3)
+
+
+   t1 = 2 * a                2        a       b       3
+   t2 = b – 3
+   x = t1 + t2
+
+                                                                4
+  Bigger Example
+                            read x
+{ Sample Tiny program for   t1 = x > 0
+  computing factorial }     if_false t1 goto L1
+                            fact = 1
+read x;                     label L2
+if 0 < x then               t2 = fact * x
+   fact := 1;               fact = t2
+   repeat                   t3 = x - 1
+     fact := fact * x;      x = t3
+     x := x – 1;            t4 = x == 0
+   until x = 0;             if_false t4 goto L2
+   write fact               write fact
+end                         label L1
+                            halt
+
+                                                  5
+Code Generation for Expressions
+ Grammar:      exp -> id = exp | aexp
+               aexp -> aexp + factor | factor
+               factor -> ( exp ) | num | id
+
+
+                                                +
+ e.g., (x = x + 3) + 4
+                                           =        4
+       Intermediate Code:
+
+       t1 = x + 3                   x           +
+       x = t1
+       t2 = x + 4                           x       3
+
+                                                        6

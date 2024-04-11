@@ -1,0 +1,110 @@
+ Record References
+typedef struct {
+  int i;
+  char c;
+  int j;
+} Record;                      ….
+                               x.j   offset of x.j
+…                                        offset of x.c
+                               x.c
+Record x;                      x.i                 base address
+                               ...                 of x
+
+
+e.g., x.j = x.i
+
+t1 = &x + field_offset(x, j)
+t2 = &x + field_offset(x, i)
+*t1 = *t2
+
+
+
+                                                                  13
+ Pointer References
+typedef struct treeNode {
+  int val;
+  struct treeNode *lchild, *rchild;
+} TreeNode;
+…
+TreeNode *p;                          p
+                                          val
+                                          lchild
+                                          rchild
+e.g., p->lchild = p;                                   val
+      p = p->rchild;                                   lchild
+                                                   p   rchild
+t1 = p + field_offset(*p, lchild)
+*t1 = p;
+t2 = p + field_offset(*p, rchild)
+p = *t2
+
+
+
+                                                                14
+Code for If-statements
+Code before if-statement
+                                   if (E) S1 else S2
+
+    Code for if test
+                           FALSE
+   Conditional jump                <code to evaluate E to t1>
+              TRUE                 if_false t1 goto L1
+                                   <code for S1>
+  Code for TRUE case               goto L2
+                                   label L1
+  Unconditional jump               <code for S2>
+                                   label L2
+
+  Code for FALSE case
+
+
+Code after if-statement
+                                                                15
+Code for While-statements
+Code before while-statement
+                                 while (E) S
+
+   Code for while test
+                         FALSE
+   Conditional jump              label L1
+                                 <code to evaluate E to t1>
+            TRUE
+                                 if_false t1 goto L2
+  Code for while body            <code for S>
+                                 goto L1
+  Unconditional jump             label L2
+
+
+
+
+Code after while-statement
+                                                          16
+Label Generation and Backpatching
+§ Jumps to a label may need to be generated before
+  the label definition
+   • Intermediate code: generate a label for a forward jump
+     and save it until the label location is known
+   • Executable code: labels must be resolved to absolute or
+     relative addresses
+§ Backpatching: leave a gap in the code for a forward
+  jump or create a dummy jump to a fake location, and
+  then go back to fix the location when the actual label
+  is known
+   • Keep the generated code in a buffer or a temporary file
+                                                               17
+   Code for Logical Expressions
+§ Short circuit:
+   • If a is false then (a and b) is also false
+   • If a is true then (a or b) is also true
+§ If-expressions: equivalent to if-statements except that
+  they return values
+   • a and b º if a then b else false
+                                              t1 = (x != 0)
+   • a or b º if a then true else b           if_false t1 goto L1
+                                              t2 = (y == x)
+  (x != 0) && (y == x)                        goto L2
+                                              label L1
+  if( x != 0 ) then (y == x)                  t2 = FALSE
+  else false                                  label L2
+
+                                                                    18

@@ -128,20 +128,43 @@ public class CodeGenerator implements AbsynVisitor {
     //     // emitComment("Function: " + funDec.funcName + " ends here");
     // }
 
-    @Override
-    public void visit(AssignExp assignExp, int level, boolean isAddr) {
-        assignExp.rhs.accept(this, level, false); // Evaluate the RHS expression first, result in `ac`
-        // Now handle the LHS as a location where we need to store the result
-        if (assignExp.lhs instanceof VarExp) {
-            VarExp lhsVarExp = (VarExp) assignExp.lhs;
-            if (lhsVarExp.variable instanceof SimpleVar) {
-                SimpleVar simpleVar = (SimpleVar) lhsVarExp.variable;
-            // Assuming `getVariableOffset` correctly calculates the offset for the variable
-            int offset = getVariableOffset(simpleVar.name, level); // Needs implementation
-            emitRM("ST", ac, offset, (level == 0 ? gp : fp), "Assign: store value");
+    // @Override
+    // public void visit(AssignExp assignExp, int level, boolean isAddr) {
+    //     assignExp.rhs.accept(this, level, false); // Evaluate the RHS expression first, result in `ac`
+    //     // Now handle the LHS as a location where we need to store the result
+    //     if (assignExp.lhs instanceof VarExp) {
+    //         VarExp lhsVarExp = (VarExp) assignExp.lhs;
+    //         if (lhsVarExp.variable instanceof SimpleVar) {
+    //             SimpleVar simpleVar = (SimpleVar) lhsVarExp.variable;
+    //         // Assuming `getVariableOffset` correctly calculates the offset for the variable
+    //         int offset = getVariableOffset(simpleVar.name, level); // Needs implementation
+    //         emitRM("ST", ac, offset, (level == 0 ? gp : fp), "Assign: store value");
+    //     }
+    //     }
+    // }
+@Override
+public void visit(AssignExp assignExp, int level, boolean isAddr) {
+    assignExp.rhs.accept(this, level, false); // Evaluate the RHS expression first, result in `ac`
+    
+    // Now handle the LHS as a location where we need to store the result
+    if (assignExp.lhs instanceof SimpleVar) {
+        SimpleVar simpleVar = (SimpleVar) assignExp.lhs;
+        // Assuming `getVariableOffset` correctly calculates the offset for the variable
+        int offset = getVariableOffset(simpleVar.name, level); // This method needs to be implemented
+        
+        // Determine the base register for the variable's scope
+        int baseReg = (level == 0 ? gp : fp);
+        
+        // If isAddr is true, load the address of LHS to `ac`, otherwise store `ac`'s value at LHS
+        if (isAddr) {
+            emitRM("LDA", ac, offset, baseReg, "Assign: load address of lhs");
+        } else {
+            emitRM("ST", ac, offset, baseReg, "Assign: store value");
         }
-        }
+    } else {
+        // Handle other types of LHS expressions, such as array indexing
     }
+}
 
     @Override
     public void visit(IntExp intExp, int level, boolean isAddr) {
@@ -180,14 +203,13 @@ public class CodeGenerator implements AbsynVisitor {
 
     @Override
     public void visit(OpExp opExp, int level, boolean isAddr) {
-        opExp.left.accept(this, level, false); // Assume result in AC
-        // Temporarily store left result
+        // Generate code for the left and right expressions of the operation
+        opExp.left.accept(this, level, false);
         emitRM("ST", ac, --mp, mp, "op: push left");
-        opExp.right.accept(this, level, false); // Assume result in AC
-        // Retrieve left result into AC1
+        opExp.right.accept(this, level, false);
         emitRM("LD", ac1, mp++, mp, "op: load left");
 
-
+        // Generate code based on the type of the operation
         switch (opExp.op) {
             case OpExp.PLUS:
                 emitRO("ADD", ac, ac1, ac, "op: +");
@@ -201,9 +223,50 @@ public class CodeGenerator implements AbsynVisitor {
             case OpExp.DIV:
                 emitRO("DIV", ac, ac1, ac, "op: /");
                 break;
+            case OpExp.LT:
+                emitRO("SUB", ac, ac1, ac, "op: <");
+                emitRM("JLT", ac, 2, pc, "branch if true");
+                emitRM("LDC", ac, 0, 0, "false case");
+                emitRM("LDA", pc, 1, pc, "unconditional jump");
+                emitRM("LDC", ac, 1, 0, "true case");
+                break;
+            case OpExp.LE:
+                emitRO("SUB", ac, ac1, ac, "op: <=");
+                emitRM("JLE", ac, 2, pc, "branch if true");
+                emitRM("LDC", ac, 0, 0, "false case");
+                emitRM("LDA", pc, 1, pc, "unconditional jump");
+                emitRM("LDC", ac, 1, 0, "true case");
+                break;
+            case OpExp.GT:
+                emitRO("SUB", ac, ac1, ac, "op: >");
+                emitRM("JGT", ac, 2, pc, "branch if true");
+                emitRM("LDC", ac, 0, 0, "false case");
+                emitRM("LDA", pc, 1, pc, "unconditional jump");
+                emitRM("LDC", ac, 1, 0, "true case");
+                break;
+            case OpExp.GE:
+                emitRO("SUB", ac, ac1, ac, "op: >=");
+                emitRM("JGE", ac, 2, pc, "branch if true");
+                emitRM("LDC", ac, 0, 0, "false case");
+                emitRM("LDA", pc, 1, pc, "unconditional jump");
+                emitRM("LDC", ac, 1, 0, "true case");
+                break;
+            // Logical operators AND and OR require short-circuit evaluation logic, which can be more complex
+            // Here's a simplified version for AND:
+            case OpExp.AND:
+                emitRO("MUL", ac, ac1, ac, "op: AND");
+                emitRM("JEQ", ac, 2, pc, "branch if false");
+                emitRM("LDC", ac, 0, 0, "false case");
+                emitRM("LDA", pc, 1, pc, "unconditional jump");
+                emitRM("LDC", ac, 1, 0, "true case");
+                break;
+            // For OR, we would use a similar approach, but with the addition logic
+            // For NOT and UMINUS, these are unary operations and would typically be handled in their own visit methods
+            default:
+                emitComment("Error: Unsupported operation");
+                break;
         }
     }
-
 
     //to visit variable and array declarations
     @Override

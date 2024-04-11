@@ -1,0 +1,110 @@
+Code Generation for Expressions
+void genCode( Exp tree ) {          // newtemp() returns a new name such as t1, t2, etc.
+  String codestr = “”;
+  if( tree != null ) {
+      if( tree instanceof OpExp ) {
+          genCode( tree.left );
+          genCode( tree.right );
+          tree.temp = newtemp();        // each node is added with a “temp” string
+          codestr += tree.temp + “ = ” + tree.left.temp + “ + ” + tree.right.temp;
+          emitCode( codestr );
+      } else if( tree instanceof AssignExp ) {
+          genCode( tree.rhs );
+          tree.temp = tree.lhs.temp;
+          codestr += tree.lhs.temp + “ = ” + tree.rhs.temp;
+          emitCode( codestr )
+      } else if( tree instanceof SimpleVar ) {
+          // do nothing
+      } else if( tree instanceof IntExp ) {
+          // do nothing
+      } else
+         emitCode(“Error”);
+  }
+}                                                                                          7
+  Array References
+§ Address vs. value of a variable:
+     t1 = &x + 10
+     *t1 = 2
+
+
+§ Array references:
+   • address of a[i+1]:
+     &a + (i+1)*elem_size(a)
+   • fetch the value of an element: t2 = a[t1]
+     t = &a + t1*elem_size(a)   t2 = *t
+
+   • assign to the address of an element: a[t2] = t1
+     t = &a + t2*elem_size(a)   *t = t1
+                                                       8
+   Array References
+§ Different levels of details:
+
+                 a[i+1] = a[j*2] + 3
+
+
+                                       t1   =   j*2
+                                       t2   =   t1 * elem_size(a)
+   t1 = j * 2                          t3   =   &a + t2
+   t2 = a[t1]                          t4   =   *t3
+   t3 = t2 + 3
+   t4 = i + 1                          t5 = t4 + 3
+   a[t4] = t3
+                                       t6 = i + 1
+                                       t7 = t6 * elem_size(a)
+                                       t8 = &a + t7
+                                       *t8 = t5
+                                                                    9
+ Code Generation for Arrays
+Grammar:     exp -> subs = exp | aexp
+             aexp -> aexp + factor | factor
+             factor -> ( exp ) | num | subs
+             subs -> id | id [ exp ]              +
+
+
+e.g., (a[i+1] = 2) + a[j]                     =       a[]
+
+Intermediate code:
+t1 = i + 1                             a[]        2     j
+t2 = t1 * elem_size(a)
+t3 = &a + t2
+*t3 = 2                                 +
+t4 = j * elem_size(a)
+t5 = &a + t4
+t6 = *t3 + *t5                    i           1
+                                                            10
+        Code Generation for Arrays
+void genCode( Exp tree ) {
+  String codestr = “”;
+  if( tree != null ) {                           // code fragment for IndexVar
+      if( tree instanceof OpExp ) {              genCode( tree.index );
+          // refer to the related fragment       String temp = newtemp();
+      } else if( tree instanceof AssignExp ) {   codestr += temp + “ = ” +
+          // refer to the related fragment           tree.index.temp + “ * elem_size(” +
+      } else if( tree instanceof IndexVar ) {        tree.name + “)”;
+          // refer to the related fragment       emitCode( codestr );
+     } else if( tree instanceof SimpleVar ) {    String temp2 = newtemp();
+         // do nothing                           codestr += temp2 + “ = &” +
+     } else if( tree instanceof IntExp ) {           tree.name + “ + ” + temp;
+         // do nothing                           emitCode( codestr );
+     } else                                      tree.temp = temp2;
+        emitCode( “Error” );                     tree.isAddr = true;
+  }
+}
+                                                                                   11
+      Code Generation for Arrays
+// code fragment for OpExp           // code fragment for AssignExp
+genCode( tree.left );                genCode( tree.lhs );
+genCode( tree.right );               genCode( tree.rhs );
+tree.temp = newtemp();               tree.temp = tree.lhs.temp;
+codestr += tree.temp + “ = ”;        tree.isAddr = tree.lhs.isAddr;
+if( tree.left.isAddr )               if( tree.isAddr )
+    codestr += “*” ;                     codestr += “*” ;
+codestr += tree.left.temp + “ + ”;   codestr += tree.temp + “ = ”;
+if( tree.right.isAddr )              if( tree.rhs.isAddr )
+    codestr += “*”;                      codestr += “*”;
+codestr += tree.right.temp;          codestr += tree.right.temp;
+emitCode( codestr );                 emitCode( codestr );
+
+
+
+                                                                      12
