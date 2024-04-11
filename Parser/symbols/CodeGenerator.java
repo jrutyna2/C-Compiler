@@ -556,10 +556,10 @@ public class CodeGenerator implements AbsynVisitor {
     }
 
     private void emitStandardPrelude() {
-        emitComment("* Standard prelude:");
-        emitRM("LD", gp, 0, 0, "load gp with maxaddress");
-        emitRM("LDA", fp, 0, gp, "copy to gp to fp");
-        emitRM("ST", ac, 0, ac, "clear location 0");
+        emitComment("Standard prelude:");
+        emitRM("LD", 6, 0, 0, "load gp with maxaddress");
+        emitRM("LDA", 5, 0, 6, "copy to gp to fp");
+        emitRM("ST", 0, 0, 0, "clear location 0");
         emitComment("End of standard prelude.");
     }
 
