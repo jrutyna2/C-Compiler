@@ -11,13 +11,17 @@ public class CodeGenerator implements AbsynVisitor {
     private int currentLocation = 0; 
     private int emitLoc = 0; // to rack the next instruction location
     private int highEmitLoc = 0; // highest emit location for temporary variables
+    
     private int gp = 0; // global Pointer register in TM
     private int mp = 1; // memory pointer points to top of memory (for temp storage)
     private int fp = 5; // frame Pointer register in TM
     private int ac = 0; // Accumulator register in TM for expression evaluation
     private int ac1 = 1; // second accumulator register in TM
+    private int sp = 1; // Assuming you want to introduce a stack pointer    
     private static final int pc = 7; // Assuming register 7 is the program counter
+
     private int globalOffset = 0; // Track the offset for global variables
+    private int localOffset = 0;  // Track the offset for local variables
     private int mainEntry = -1; // Entry point for the main function
     private int inputEntry = -1;
     private int outputEntry = -1;
@@ -25,7 +29,6 @@ public class CodeGenerator implements AbsynVisitor {
     private Stack<Integer> backupStack = new Stack<>();
     private Map<String, Integer> functionDirectory = new HashMap<>();
     private static final int returnAddrOffset = -1; // If the return address is stored just below the fp
-    private int sp = 1; // Assuming you want to introduce a stack pointer
     private SymbolTable symbolTable;
     private StringBuilder codeBuilder = new StringBuilder();
 
@@ -119,6 +122,9 @@ public class CodeGenerator implements AbsynVisitor {
             System.out.println("Function declaration: " + funDec.funcName);
         }
 
+        // Initialize localOffset for new function scope
+        localOffset = 0;
+
         // Handle function arguments and body
         if (funDec.params != null) {
             funDec.params.accept(this, level + 1, false);
@@ -136,6 +142,7 @@ public class CodeGenerator implements AbsynVisitor {
             emitRO("HALT", 0, 0, 0, "End of program execution");
         }
     }
+
     // @Override
     // public void visit(FunDec funDec, int level, boolean isAddr) {
     //     //int funcEntry = emitSkip(0); // Save the current location as the function's entry point

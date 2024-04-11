@@ -1,3 +1,13 @@
 git add .
 git commit -m "upd"
 git push origin main
+
+repo: https://github.com/jrutyna2/nm.git
+
+Parser/symbols/CodeGenerator.java
+Parser/symbols/SemanticAnalyzer.java
+Parser/symbols/SymbolTable.java
+
+Parser/Main.java
+
+TMSimulator/tm.c
