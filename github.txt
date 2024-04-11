@@ -4,10 +4,14 @@ git push origin main
 
 repo: https://github.com/jrutyna2/nm.git
 
+Parser/absyn/AbsynVisitor.java
+
 Parser/symbols/CodeGenerator.java
 Parser/symbols/SemanticAnalyzer.java
 Parser/symbols/SymbolTable.java
 
 Parser/Main.java
+
+info/C.cup-grammar.txt
 
 TMSimulator/tm.c

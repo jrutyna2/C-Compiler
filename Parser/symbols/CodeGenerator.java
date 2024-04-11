@@ -7,7 +7,10 @@ import java.util.Map;
 import java.util.ArrayDeque;
 import java.util.Deque;
 public class CodeGenerator implements AbsynVisitor {
-   
+    private static final int ADMIN_FIELDS = 2; // Return address and old frame pointer
+    private static final int MAX_LOCAL_VARIABLES = 10; // Example maximum to prevent overflow
+    private static final int FRAME_SIZE = ADMIN_FIELDS + MAX_LOCAL_VARIABLES;
+
     private int currentLocation = 0; 
     private int emitLoc = 0; // to rack the next instruction location
     private int highEmitLoc = 0; // highest emit location for temporary variables
@@ -20,8 +23,8 @@ public class CodeGenerator implements AbsynVisitor {
     private int sp = 1; // Assuming you want to introduce a stack pointer    
     private static final int pc = 7; // Assuming register 7 is the program counter
 
-    private int globalOffset = 0; // Track the offset for global variables
-    private int localOffset = 0;  // Track the offset for local variables
+    private int globalVarOffset = 0; // Track the offset for global variables
+    private int localVarOffset = 0;  // Track the offset for local variables
     private int mainEntry = -1; // Entry point for the main function
     private int inputEntry = -1;
     private int outputEntry = -1;
@@ -122,8 +125,8 @@ public class CodeGenerator implements AbsynVisitor {
             System.out.println("Function declaration: " + funDec.funcName);
         }
 
-        // Initialize localOffset for new function scope
-        localOffset = 0;
+        // Initialize localVarOffset for new function scope
+        localVarOffset = 0;
 
         // Handle function arguments and body
         if (funDec.params != null) {
@@ -161,28 +164,41 @@ public class CodeGenerator implements AbsynVisitor {
     //     // emitComment("Function: " + funDec.funcName + " ends here");
     // }
 
-    //to visit variable and array declarations
     @Override
-    public void visit(SimpleDec simpleDec, int level, boolean isAddr) {
-        if (level == 0) {
-            emitComment("Global variable: " + simpleDec.name);
-            globalOffset--; // Adjust globalOffset for the new global variable
-            // Example: initialize global variable to 0
-            emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0");
-            emitRM("ST", ac, globalOffset, gp, "Store global variable " + simpleDec.name);
+    public void visit(VarDecList varDecList, int level, boolean isAddr) {
+        while (varDecList != null && varDecList.head != null) { // Ensures null safety
+            varDecList.head.accept(this, level + 1, isAddr);
+            varDecList = varDecList.tail;
         }
     }
-    
+
+    @Override
+    public void visit(SimpleDec simpleDec, int level, boolean isAddr) {
+        if (level == 0) { // Global variable
+            emitComment("Global variable: " + simpleDec.name);
+            globalOffset--; // Adjust globalOffset for the new global variable
+            emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0");
+            emitRM("ST", ac, globalOffset, gp, "Store global variable " + simpleDec.name);
+        } else { // Local variable within a function
+            emitComment("Local variable: " + simpleDec.name);
+            localOffset--; // Allocate space for local variable
+            // Optionally initialize local variable to 0
+            // emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0");
+            // emitRM("ST", ac, localOffset, fp, "Store local variable " + simpleDec.name);
+            // Note: Initialization might be optional based on your language specification
+        }
+    }
+
     @Override
     public void visit(ArrayDec arrayDec, int level, boolean isAddr) {
         if (level == 0) { // Assuming global array
             emitComment("Global array: " + arrayDec.name);
             // Allocate space; assuming each element is 1 memory cell
             emitRM("LDC", ac, arrayDec.size, 0, "load array size");
-            emitRM("ST", ac, globalOffset--, gp, "store array size at global offset");
+            emitRM("ST", ac, globalVarOffset--, gp, "store array size at global offset");
             for (int i = 0; i < arrayDec.size; i++) {
                 emitRM("LDC", ac, 0, 0, "initialize to 0");
-                emitRM("ST", ac, globalOffset--, gp, "init array element");
+                emitRM("ST", ac, globalVarOffset--, gp, "init array element");
             }
         } else {
             // For local arrays, you'd adjust the mp (memory pointer) accordingly
@@ -212,7 +228,7 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
     // Assuming global variables start at a fixed offset and local variables use a stack-like allocation
     int offset;
     if (level == 0) { // Global variable
-        offset = globalOffset++;
+        offset = globalVarOffset++;
     } else { // Local variable
         offset = --localVarOffset; // Allocate from the current frame pointer
     }
@@ -246,8 +262,30 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
 // }
 
     @Override
-    public void visit(IntExp intExp, int level, boolean isAddr) {
-        emitRM("LDC", ac, intExp.value, 0, "load const");
+    public void visit(ExpList expList, int level, boolean isAddr) {
+        while (expList != null) {
+            expList.head.accept(this, level, false); // Expressions in a list are evaluated for their side effects or values
+            expList = expList.tail;
+        }
+    }
+
+    @Override
+    public void visit(CompoundExp compoundExp, int level, boolean isAddr) {
+        emitComment("Begin compound statement");
+
+        // If there are variable declarations in the compound statement, generate code for them.
+        if (compoundExp.localDecs != null) {
+            emitComment("Variable declarations in compound statement");
+            compoundExp.localDecs.accept(this, level + 1, false);
+        }
+
+        // Generate code for each statement or expression in the compound statement.
+        if (compoundExp.stmtList != null) {
+            emitComment("Statements/Expressions in compound statement");
+            compoundExp.stmtList.accept(this, level + 1, isAddr);
+        }
+
+        emitComment("End compound statement");
     }
 
     @Override
@@ -271,8 +309,40 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
     }
    
     @Override
-    public void visit(ErrorDec errorDec, int level, boolean isAddr) {
-        //for error handling
+    public void visit(WhileExp whileExp, int level, boolean isAddr) {
+        emitComment("start of while loop");
+
+        int startLoopLoc = emitLoc; // Directly use integer for loop start location
+        whileExp.test.accept(this, level + 1, false); // Generate test expression code
+        
+        int jumpToEndLoc = emitSkip(1); // Reserve space for conditional jump out of loop
+        whileExp.body.accept(this, level + 1, false); // Generate loop body code
+
+        emitRM_Abs("LDA", pc, startLoopLoc, "jump back to the start of the loop"); // Jump back to start
+        int loopEndLoc = emitLoc; // Location after loop body
+        
+        emitBackup(jumpToEndLoc); 
+        emitRM_Abs("JEQ", ac, loopEndLoc, "Jump to end of loop if condition is false"); // Correct backpatching
+        emitRestore();
+
+        emitComment("end of while loop");
+    }
+
+    @Override
+    public void visit(ReturnExp returnExp, int level, boolean isAddr) {
+        emitComment("start of return");
+
+        // If there's an expression to return, evaluate it and store the result
+        if (returnExp.exp != null) {
+            returnExp.exp.accept(this, level + 1, false);
+            // Assume the result is now in 'ac' and needs to be moved to the return value location
+            // if your convention specifies a location for return values.
+        }
+
+        // Assuming the function's prologue has set up 'fp' such that the return address is at a known offset
+        emitRM("LD", pc, returnAddrOffset, fp, "Load return address and jump to caller");
+
+        emitComment("end of return");
     }
 
     @Override
@@ -343,92 +413,6 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
     }
 
     @Override
-    public void visit(NameTy nameTy, int level, boolean isAddr) {
-        // This might not produce direct assembly code but could set context
-        emitComment("NameTy:/tType: " + (nameTy.typ == NameTy.INT ? "int" : "void"));
-    }
-
-    @Override
-    public void visit(NilExp nilExp, int level, boolean isAddr) {
-        // Since NilExp represents a "no operation" or null value in the AST,
-        // it does not directly translate to a TM assembly instruction.
-        // Emit a comment for clarity or simply pass.
-        emitComment("NilExp encountered - no operation generated");
-    }
-
-    @Override
-    public void visit(VarDecList varDecList, int level, boolean isAddr) {
-        while (varDecList != null && varDecList.head != null) { // Ensures null safety
-            varDecList.head.accept(this, level + 1, isAddr);
-            varDecList = varDecList.tail;
-        }
-    }
-
-    @Override
-    public void visit(ExpList expList, int level, boolean isAddr) {
-        while (expList != null) {
-            expList.head.accept(this, level, false); // Expressions in a list are evaluated for their side effects or values
-            expList = expList.tail;
-        }
-    }
-
-    @Override
-    public void visit(CompoundExp compoundExp, int level, boolean isAddr) {
-        emitComment("Begin compound statement");
-
-        // If there are variable declarations in the compound statement, generate code for them.
-        if (compoundExp.localDecs != null) {
-            emitComment("Variable declarations in compound statement");
-            compoundExp.localDecs.accept(this, level + 1, false);
-        }
-
-        // Generate code for each statement or expression in the compound statement.
-        if (compoundExp.stmtList != null) {
-            emitComment("Statements/Expressions in compound statement");
-            compoundExp.stmtList.accept(this, level + 1, isAddr);
-        }
-
-        emitComment("End compound statement");
-    }
-
-    @Override
-    public void visit(WhileExp whileExp, int level, boolean isAddr) {
-        emitComment("start of while loop");
-
-        int startLoopLoc = emitLoc; // Directly use integer for loop start location
-        whileExp.test.accept(this, level + 1, false); // Generate test expression code
-        
-        int jumpToEndLoc = emitSkip(1); // Reserve space for conditional jump out of loop
-        whileExp.body.accept(this, level + 1, false); // Generate loop body code
-
-        emitRM_Abs("LDA", pc, startLoopLoc, "jump back to the start of the loop"); // Jump back to start
-        int loopEndLoc = emitLoc; // Location after loop body
-        
-        emitBackup(jumpToEndLoc); 
-        emitRM_Abs("JEQ", ac, loopEndLoc, "Jump to end of loop if condition is false"); // Correct backpatching
-        emitRestore();
-
-        emitComment("end of while loop");
-    }
-
-    @Override
-    public void visit(ReturnExp returnExp, int level, boolean isAddr) {
-        emitComment("start of return");
-
-        // If there's an expression to return, evaluate it and store the result
-        if (returnExp.exp != null) {
-            returnExp.exp.accept(this, level + 1, false);
-            // Assume the result is now in 'ac' and needs to be moved to the return value location
-            // if your convention specifies a location for return values.
-        }
-
-        // Assuming the function's prologue has set up 'fp' such that the return address is at a known offset
-        emitRM("LD", pc, returnAddrOffset, fp, "Load return address and jump to caller");
-
-        emitComment("end of return");
-    }
-
-    @Override
     public void visit(CallExp callExp, int level, boolean isAddr) {
     // Debug output to list functions in the directory before checking a specific function call
     // System.out.println("[Debug] Current functionDirectory contents:");
@@ -449,7 +433,7 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
         while (argList != null && argList.head != null) {
             argList.head.accept(this, level + 1, false); // Evaluate and result in 'ac'
             // Assuming each argument's result is now in 'ac', push it onto the stack.
-            emitRM("ST", ac, --globalOffset, mp, "push argument for " + callExp.func);
+            emitRM("ST", ac, --globalVarOffset, mp, "push argument for " + callExp.func);
             argList = argList.tail;
             argCount++;
         }
@@ -480,18 +464,38 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
 
     @Override
     public void visit(VarExp varExp, int level, boolean isAddr) {
-        // emitComment("VarExp: " + varExp.variable.name);
+        emitComment("Variable Expression: " + varExp.variable.name);
 
-        // int varOffset = getVariableOffset(varExp.variable.name);
+        int offset;
+        int baseReg = fp;  // Default to frame pointer for local variables
+        if (level == 0) { // Global variable
+            baseReg = gp;
+            offset = globalOffsets.get(varExp.variable.name);  // You need to maintain this mapping
+        } else { // Local variable
+            offset = calculateLocalOffset(localOffsets.get(varExp.variable.name));  // Adjust for local variable offsets
+        }
 
-        // if (isAddr) {
-        //     // If we need the address of the variable, load it into the accumulator.
-        //     emitRM("LDA", ac, varOffset, gp, "load address of " + varExp.variable.name);
-        // } else {
-        //     // Otherwise, load the variable's value into the accumulator.
-        //     emitRM("LD", ac, varOffset, gp, "load value of " + varExp.variable.name);
-        // }
+        if (isAddr) {
+            // If address is requested, load the address (base + offset) into the accumulator
+            emitRM("LDA", ac, offset, baseReg, "Load address of " + varExp.variable.name);
+        } else {
+            // Load the variable's value into the accumulator
+            emitRM("LD", ac, offset, baseReg, "Load value of " + varExp.variable.name);
+        }
     }
+
+    @Override
+    public void visit(IntExp intExp, int level, boolean isAddr) {
+        emitRM("LDC", ac, intExp.value, 0, "load const");
+    }
+
+    @Override
+    public void visit(BoolExp boolExp, int level, boolean isAddr) {
+        emitComment("BoolExp");
+        int value = boolExp.value ? 1 : 0;  // Convert boolean to integer value
+        emitRM("LDC", ac, value, 0, "load " + (boolExp.value ? "true" : "false"));
+    }
+
 
     @Override
     public void visit(SimpleVar simpleVar, int level, boolean isAddr) {
@@ -533,42 +537,34 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
     
     }
 
-
     @Override
-    public void visit(BoolExp boolExp, int level, boolean isAddr) {
-        emitComment("BoolExp");
-
-        // Assuming BoolExp contains a 'value' field that is either true or false.
-        if (boolExp.value) {
-            // If the boolean value is true, load 1 into the accumulator.
-            emitRM("LDC", ac, 1, 0, "load true");
-        } else {
-            // If the boolean value is false, load 0 into the accumulator.
-            emitRM("LDC", ac, 0, 0, "load false");
-        }
-        
-        // If the boolean expression is used in a context that requires its address (unlikely for simple booleans),
-        // additional handling would be needed here, which might involve storing the boolean value in a temporary
-        // location and loading its address into the accumulator.
-        if (isAddr) {
-            emitComment("Address of BoolExp requested, handle accordingly");
-            // Depending on your language semantics and TM capabilities, you might need to handle this case.
-            // For example, storing the boolean value in memory and loading its address.
-        }
+    public void visit(NameTy nameTy, int level, boolean isAddr) {
+        // This might not produce direct assembly code but could set context
+        emitComment("NameTy:/tType: " + (nameTy.typ == NameTy.INT ? "int" : "void"));
     }
 
+    @Override
+    public void visit(NilExp nilExp, int level, boolean isAddr) {
+        // Since NilExp represents a "no operation" or null value in the AST,
+        // it does not directly translate to a TM assembly instruction.
+        // Emit a comment for clarity or simply pass.
+        emitComment("NilExp encountered - no operation generated");
+    }
+
+    @Override
+    public void visit(ErrorDec errorDec, int level, boolean isAddr) {
+        //for error handling
+    }
 
 /**
  * Calculates the memory offset for a local variable relative to the current stack frame.
  * @param baseOffset The base offset of the variable within its declared scope.
- * @param level The current nesting level or scope level.
  * @return The adjusted offset relative to the frame pointer (fp).
  */
-private int calculateLocalOffset(int baseOffset, int level) {
-    // This method adjusts the baseOffset based on the current level.
-    // Implement the logic based on how your stack frames are organized.
-    // This is a placeholder for illustration.
-    return baseOffset - (level * FRAME_SIZE); // FRAME_SIZE would be a constant representing the size of a stack frame.
+private int calculateLocalOffset(int baseOffset) {
+    // Assume all local variables are of uniform size (e.g., each takes 1 memory unit).
+    // The baseOffset represents the position of the variable within the local scope (e.g., 0 for the first local variable, 1 for the second).
+    return -baseOffset - ADMIN_FIELDS; // Admin fields may include saved frame pointer, return address, etc.
 }
 
     private int getVariableOffset(String varName, int level) {
@@ -617,14 +613,14 @@ private int calculateLocalOffset(int baseOffset, int level) {
     }
 
     public void setGlobalOffset(int offset) {
-        this.globalOffset = offset;
+        this.globalVarOffset = offset;
     }
 
     public void emitFunctionEntry(String functionName, int localVariablesCount) {
         int frameOffset = -2 - localVariablesCount; // Adjust for 'ofp' and 'return addr', and local variables
         emitComment(String.format("Entering function: %s with frameOffset %d", functionName, frameOffset));
         // Emit TM instructions to adjust fp and allocate space for locals
-        emitRM("ST", 5, globalOffset + (-1), 5, "Store old fp at top of frame");
+        emitRM("ST", 5, globalVarOffset + (-1), 5, "Store old fp at top of frame");
         emitRM("LDA", 5, frameOffset, 5, "Adjust fp for new frame");
         // Additional setup for parameters and local variables could be emitted here
     }

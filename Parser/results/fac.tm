@@ -6,14 +6,14 @@
   2:     ST  0,0(0) 	clear location 0
 * End of standard prelude.
 * code for input routine
-  4:     ST  0,-1(2) 	store return
+  4:     ST  0,-1(5) 	store return
   5:     IN  0,0,0 	input
-  6:     LD  7,-1(2) 	return to caller
+  6:     LD  7,-1(5) 	return to caller
 * code for output routine
-  7:     ST  0,-1(2) 	store return
-  8:     LD  0,-2(2) 	load output value
+  7:     ST  0,-1(5) 	store return
+  8:     LD  0,-2(5) 	load output value
   9:    OUT  0,0,0 	output
- 10:     LD  7,-1(2) 	return to caller
+ 10:     LD  7,-1(5) 	return to caller
   3:    LDA  7,7(7) 	Jump around I/O routines to the start of the main program
 * C- compilation to TM code
 * Start of main function
@@ -39,20 +39,20 @@
  23:    LDC  0,1(0) 	load const
  24:     LD  1,0(1) 	op: load left
  25:    SUB  0,1,0 	op: -
- 26:     ST  0,1(2) 	Assign: store value
+ 26:     ST  0,-1(5) 	Assign: store value
  27:     ST  0,0(0) 	op: push left
  28:     LD  1,0(1) 	op: load left
  29:    MUL  0,1,0 	op: *
- 30:     ST  0,1(2) 	Assign: store value
+ 30:     ST  0,-2(5) 	Assign: store value
 * End compound statement
  31:    LDA  7,-20(7) 	jump back to the start of the loop
  21:    JEQ  0,9(7) 	Jump to end of loop if condition is false
 * end of while loop
  32:    LDC  0,1(0) 	load const
- 33:     ST  0,1(2) 	Assign: store value
+ 33:     ST  0,-3(5) 	Assign: store value
 * CallExp: input
  34:     IN  0,0,0 	input integer value
- 35:     ST  0,1(2) 	Assign: store value
+ 35:     ST  0,-4(5) 	Assign: store value
 * End compound statement
 * End of function: main
  36:   HALT  0,0,0 	End of program execution
