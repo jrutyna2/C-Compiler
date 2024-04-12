@@ -119,6 +119,8 @@ public void visit(FunDec funDec, int level, boolean isAddr) {
         functionDirectory.put(funDec.funcName, emitSkip(0)); // Record start of actual function body for calls
         emitComment("Processing function: " + funDec.funcName);
 
+        localVarOffset = 0; // Reset local variable offset here
+
         // Function body processing...
         if (funDec.body != null) {
             funDec.body.accept(this, level + 1, false);
@@ -128,11 +130,14 @@ public void visit(FunDec funDec, int level, boolean isAddr) {
         int afterFuncLoc = emitLoc; // Location after function body
         emitBackup(skipLoc);
         emitRM("LDA", pc, afterFuncLoc - (skipLoc + 1), pc, "Jump around function body");
-        emitRestore();        
+        emitRestore();
+
     } else {
         // Special handling for main, where we typically do not jump around
         mainEntry = emitSkip(0);
         emitComment("Start of main function");
+
+        localVarOffset = 0; // Reset local variable offset here also for main
 
         // Function body processing...
         if (funDec.body != null) {
