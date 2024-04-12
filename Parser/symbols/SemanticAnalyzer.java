@@ -15,7 +15,6 @@ public class SemanticAnalyzer implements AbsynVisitor {
     private NameTy boolTy = new NameTy(-1, -1, NameTy.BOOL);
     private NameTy intTy = new NameTy(-1, -1, NameTy.INT);
     private boolean isInGlobalScope = true;
-    private boolean skipCompound = false;
     
     public SemanticAnalyzer() {
         symbolTable = new SymbolTable(builder);
@@ -132,7 +131,6 @@ public void visit(Program program, int level, boolean isAddr) {
             // Do not increment the level here since we are not inside the function's body yet.
             if (global) isInGlobalScope = false;            
             symbolTable.enterScope(level, currentFunctionName, false);
-            skipCompound = true;
         }
 
         // Visit parameters, if any
@@ -150,7 +148,6 @@ public void visit(Program program, int level, boolean isAddr) {
             // Exiting the function's scope after processing its body and parameters
             if (global) isInGlobalScope = true;            
             symbolTable.exitScope(level, true, false, currentFunctionName);
-            skipCompound = false;
         }        
 
         currentFunctionContext = null;
@@ -295,11 +292,6 @@ public void visit(Program program, int level, boolean isAddr) {
 
     @Override
     public void visit(CompoundExp compoundExp, int level, boolean isAddr) {
-        // Enter a new scope for the compound statement
-        // boolean temp = skipCompound;
-        // if (temp) skipCompound = false;
-        // else symbolTable.enterScope(level, null, true);
-
         // Visit local declarations if there are any
         if (compoundExp.localDecs != null) {
             VarDecList localDecs = compoundExp.localDecs;
@@ -321,9 +313,6 @@ public void visit(Program program, int level, boolean isAddr) {
                 stmtList = stmtList.tail;
             }
         }
-
-        // Exit the scope for the compound statement
-        // if (!temp) symbolTable.exitScope(level, false, true, null);
     }
 
     @Override

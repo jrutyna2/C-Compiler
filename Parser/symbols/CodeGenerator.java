@@ -169,39 +169,6 @@ public void visit(FunDec funDec, int level, boolean isAddr) {
 
     // @Override
     // public void visit(FunDec funDec, int level, boolean isAddr) {
-    //     if (funDec.funcName.equals("main")) {
-    //         mainEntry = emitSkip(0); // Mark the start of the main function
-    //         emitComment("Start of main function");
-    //     } else {
-    //         // Handle other functions
-    //         functionDirectory.put(funDec.funcName, emitSkip(0));
-    //         emitComment("Function declaration: " + funDec.funcName);
-    //         // System.out.println("Function declaration: " + funDec.funcName);
-    //     }
-
-    //     // Initialize localVarOffset for new function scope
-    //     localVarOffset = 0;
-
-    //     // Handle function arguments and body
-    //     if (funDec.params != null) {
-    //         funDec.params.accept(this, level + 1, false);
-    //     }
-    //     if (funDec.body != null) {
-    //         funDec.body.accept(this, level + 1, false);
-    //     }
-    //     // Function return or end
-    //     emitComment("End of function: " + funDec.funcName);
-    //     if (!funDec.funcName.equals("main")) {
-    //         // Implement return mechanism for user-defined functions
-    //         // For example, jump back to the caller, handle stack frame clean-up
-    //         emitRM("LD", pc, -1, fp, "Return to caller");
-    //     } else {
-    //         emitRO("HALT", 0, 0, 0, "End of program execution");
-    //     }
-    // }
-
-    // @Override
-    // public void visit(FunDec funDec, int level, boolean isAddr) {
     //     //int funcEntry = emitSkip(0); // Save the current location as the function's entry point
     //     // functionDirectory.put(funcDec.funcName, funcEntry);
     //         emitComment("Function: " + funDec.funcName + " entry point");
@@ -220,11 +187,47 @@ public void visit(FunDec funDec, int level, boolean isAddr) {
 
     @Override
     public void visit(VarDecList varDecList, int level, boolean isAddr) {
-        while (varDecList != null && varDecList.head != null) { // Ensures null safety
-            varDecList.head.accept(this, level + 1, isAddr);
+        // Reverse the order of variable declarations
+        Deque<VarDec> stack = new ArrayDeque<>();
+        while (varDecList != null && varDecList.head != null) {
+            stack.push(varDecList.head);
             varDecList = varDecList.tail;
         }
+        while (!stack.isEmpty()) {
+            VarDec varDec = stack.pop();
+            varDec.accept(this, level + 1, isAddr);
+        }
     }
+
+    @Override
+    public void visit(ExpList expList, int level, boolean isAddr) {
+        // Reverse the order of expressions if necessary
+        Deque<Exp> stack = new ArrayDeque<>();
+        while (expList != null && expList.head != null) {
+            stack.push(expList.head);
+            expList = expList.tail;
+        }
+        while (!stack.isEmpty()) {
+            Exp exp = stack.pop();
+            exp.accept(this, level, isAddr);
+        }
+    }
+
+    // @Override
+    // public void visit(VarDecList varDecList, int level, boolean isAddr) {
+    //     while (varDecList != null && varDecList.head != null) { // Ensures null safety
+    //         varDecList.head.accept(this, level + 1, isAddr);
+    //         varDecList = varDecList.tail;
+    //     }
+    // }
+
+    // @Override
+    // public void visit(ExpList expList, int level, boolean isAddr) {
+    //     while (expList != null) {
+    //         expList.head.accept(this, level, false); // Expressions in a list are evaluated for their side effects or values
+    //         expList = expList.tail;
+    //     }
+    // }
 
     @Override
     public void visit(SimpleDec simpleDec, int level, boolean isAddr) {
@@ -317,14 +320,6 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
 //     }
 //     // Additional handling for more complex LHS expressions if needed
 // }
-
-    @Override
-    public void visit(ExpList expList, int level, boolean isAddr) {
-        while (expList != null) {
-            expList.head.accept(this, level, false); // Expressions in a list are evaluated for their side effects or values
-            expList = expList.tail;
-        }
-    }
 
     @Override
     public void visit(CompoundExp compoundExp, int level, boolean isAddr) {
