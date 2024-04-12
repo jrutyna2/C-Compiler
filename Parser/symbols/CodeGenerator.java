@@ -232,12 +232,12 @@ public void visit(FunDec funDec, int level, boolean isAddr) {
 
         if (level == 0) { // Global variable
             globalVarOffset--; // Deduct from global offset for new variable
-            emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0"); // Initialize global variable
+            // emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0"); // Initialize global variable
             emitRM("ST", ac, globalVarOffset, gp, "Store global variable " + simpleDec.name);
         } else { // Local variable within a function
             localVarOffset--; // Allocate space for local variable on the stack
             // Initialization of local variables (optional based on language specs)
-            emitRM("LDC", ac, 0, 0, "Optionally init " + simpleDec.name + " to 0");
+            // emitRM("LDC", ac, 0, 0, "Optionally init " + simpleDec.name + " to 0");
             emitRM("ST", ac, localVarOffset, fp, "Store local variable " + simpleDec.name);
         }
     }
@@ -533,9 +533,11 @@ public void visit(CallExp callExp, int level, boolean isAddr) {
     // }
     emitComment("CallExp: " + callExp.func);
     if ("input".equals(callExp.func)) {
+        emitComment("Preparing for input");
         emitRO("IN", ac, 0, 0, "input integer value");
         return;
     } else if ("output".equals(callExp.func)) {
+        emitComment("Preparing for output");
         if (callExp.args != null) {
             callExp.args.accept(this, level + 1, false); // Evaluate argument for output
         } else {
