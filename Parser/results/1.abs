@@ -1,7 +1,0 @@
-Program
-  FunctionDec: run, Return type: int
-    CompoundExp:
-        SimpleDec: nothing
-          Type: INT
-        ReturnExp: IntExp: 1
-
