@@ -49,10 +49,22 @@ public class CodeGenerator implements AbsynVisitor {
         emitRM("LD", 6, 0, 0, "load gp with maxaddress");
         emitRM("LDA", 5, 0, 6, "copy to gp to fp");
         emitRM("ST", 0, 0, 0, "clear location 0");
-        emitComment("End of standard prelude.");
+        // Reserve space for jump instruction to skip around I/O code
+        int jumpInstLoc = emitLoc; // Record the location for backpatching
+        emitSkip(1); // Effectively reserves space by incrementing emitLoc
+        // Emit predefined I/O routines immediately after the prelude
+        emitIORoutines();
+        // Now backpatch the jump instruction to skip over I/O routines
+        int mainStartLoc = emitLoc; // Use emitLoc directly as the current location
+        emitBackup(jumpInstLoc); // Move back to the jump instruction's location
+        // Assuming 'LDA pc, offset(pc)' is how you've structured jump instructions...
+        emitRM("LDA", pc, mainStartLoc - (jumpInstLoc + 1), pc, "jump around i/o code");
+        emitRestore(); // Return to the current location to continue code generation
+        emitComment("End of standard prelude.");        
     }
 
     private void emitIORoutines() {
+        emitComment("Jump around i/o routines here");
         emitComment("code for input routine");
         emitRM("ST", ac, -1, fp, "store return");
         emitRO("IN", ac, 0, 0, "input");
@@ -65,33 +77,14 @@ public class CodeGenerator implements AbsynVisitor {
         emitRM("LD", pc, -1, fp, "return to caller");
     }
 
-    private void emitJumpAroundIOCode(int jumpTarget) {
-        // Placeholder for the actual method to emit an absolute jump instruction
-        emitRM_Abs("LDA", pc, jumpTarget, "Jump around I/O routines to start of main program");
-    }
-
     @Override
     public void visit(Program program, int level, boolean isAddr) {
         // Emit the standard prelude first
         emitStandardPrelude();
-        // Reserve space for jump instruction to skip around I/O code
-        int jumpInstLoc = emitLoc; // Record the location for backpatching
-        emitSkip(1); // Effectively reserves space by incrementing emitLoc
-        // Emit predefined I/O routines immediately after the prelude
-        emitIORoutines();
-        // Now backpatch the jump instruction to skip over I/O routines
-        int mainStartLoc = emitLoc; // Use emitLoc directly as the current location
-        emitBackup(jumpInstLoc); // Move back to the jump instruction's location
-        // Assuming 'LDA pc, offset(pc)' is how you've structured jump instructions...
-        emitRM("LDA", pc, mainStartLoc - (jumpInstLoc + 1), pc, "Jump around I/O routines to the start of the main program");
-        emitRestore(); // Return to the current location to continue code generation
-        emitComment("C- compilation to TM code");
         // Process the program declarations and statements
         if (program.declarations != null) {
             program.declarations.accept(this, level, false);
         }
-        // Emit a HALT instruction at the end of the program
-        emitRO("HALT", 0, 0, 0, "End of program execution");
         // Emit any finale code if needed (optional, depending on your code structure)
         // This might include finalization logic or cleanup, if applicable
         emitFinale();
@@ -113,39 +106,71 @@ public class CodeGenerator implements AbsynVisitor {
             dec.accept(this, level + 1, isAddr);
         }
     }
+private void emitHalt() {
+    System.out.println("HALT emitted at location: " + emitLoc);  // Debugging line
+    emitRO("HALT", 0, 0, 0, "End of program execution");
+}
 
-    @Override
-    public void visit(FunDec funDec, int level, boolean isAddr) {
-        if (funDec.funcName.equals("main")) {
-            mainEntry = emitSkip(0); // Mark the start of the main function
-            emitComment("Start of main function");
-        } else {
-            // Handle other functions
-            functionDirectory.put(funDec.funcName, emitSkip(0));
-            emitComment("Function declaration: " + funDec.funcName);
-            System.out.println("Function declaration: " + funDec.funcName);
-        }
-
-        // Initialize localVarOffset for new function scope
-        localVarOffset = 0;
-
-        // Handle function arguments and body
-        if (funDec.params != null) {
-            funDec.params.accept(this, level + 1, false);
-        }
-        if (funDec.body != null) {
-            funDec.body.accept(this, level + 1, false);
-        }
-        // Function return or end
-        emitComment("End of function: " + funDec.funcName);
-        if (!funDec.funcName.equals("main")) {
-            // Implement return mechanism for user-defined functions
-            // For example, jump back to the caller, handle stack frame clean-up
-            emitRM("LD", pc, -1, fp, "Return to caller");
-        } else {
-            emitRO("HALT", 0, 0, 0, "End of program execution");
-        }
+@Override
+public void visit(FunDec funDec, int level, boolean isAddr) {
+    if (!funDec.funcName.equals("main")) {
+        int funcStart = emitSkip(0); // Start of function
+        int skipLoc = emitSkip(1); // Reserve space to skip over function body
+        functionDirectory.put(funDec.funcName, emitSkip(0)); // Record start of actual function body for calls
+        emitComment("Processing function: " + funDec.funcName);
+    } else {
+        mainEntry = emitSkip(0); // Start of main function
+        emitComment("Start of main function");
     }
+
+    localVarOffset = 0;
+    if (funDec.params != null) {
+        funDec.params.accept(this, level + 1, false);
+    }
+    if (funDec.body != null) {
+        funDec.body.accept(this, level + 1, false);
+    }
+
+    emitComment("End of function: " + funDec.funcName);
+    if (!funDec.funcName.equals("main")) {
+        emitRM("LD", pc, -1, fp, "Return to caller");
+    } else {
+        emitHalt();  // Use the helper method for emitting HALT
+    }
+}
+
+    // @Override
+    // public void visit(FunDec funDec, int level, boolean isAddr) {
+    //     if (funDec.funcName.equals("main")) {
+    //         mainEntry = emitSkip(0); // Mark the start of the main function
+    //         emitComment("Start of main function");
+    //     } else {
+    //         // Handle other functions
+    //         functionDirectory.put(funDec.funcName, emitSkip(0));
+    //         emitComment("Function declaration: " + funDec.funcName);
+    //         // System.out.println("Function declaration: " + funDec.funcName);
+    //     }
+
+    //     // Initialize localVarOffset for new function scope
+    //     localVarOffset = 0;
+
+    //     // Handle function arguments and body
+    //     if (funDec.params != null) {
+    //         funDec.params.accept(this, level + 1, false);
+    //     }
+    //     if (funDec.body != null) {
+    //         funDec.body.accept(this, level + 1, false);
+    //     }
+    //     // Function return or end
+    //     emitComment("End of function: " + funDec.funcName);
+    //     if (!funDec.funcName.equals("main")) {
+    //         // Implement return mechanism for user-defined functions
+    //         // For example, jump back to the caller, handle stack frame clean-up
+    //         emitRM("LD", pc, -1, fp, "Return to caller");
+    //     } else {
+    //         emitRO("HALT", 0, 0, 0, "End of program execution");
+    //     }
+    // }
 
     // @Override
     // public void visit(FunDec funDec, int level, boolean isAddr) {
@@ -175,18 +200,18 @@ public class CodeGenerator implements AbsynVisitor {
 
     @Override
     public void visit(SimpleDec simpleDec, int level, boolean isAddr) {
+        // Comment on the purpose of this variable
+        emitComment((level == 0 ? "Global" : "Local") + " variable: " + simpleDec.name);
+
         if (level == 0) { // Global variable
-            emitComment("Global variable: " + simpleDec.name);
-            globalVarOffset--; // Adjust globalVarOffset for the new global variable
-            emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0");
+            globalVarOffset--; // Deduct from global offset for new variable
+            emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0"); // Initialize global variable
             emitRM("ST", ac, globalVarOffset, gp, "Store global variable " + simpleDec.name);
         } else { // Local variable within a function
-            emitComment("Local variable: " + simpleDec.name);
-            localVarOffset--; // Allocate space for local variable
-            // Optionally initialize local variable to 0
-            // emitRM("LDC", ac, 0, 0, "Init " + simpleDec.name + " to 0");
-            // emitRM("ST", ac, localVarOffset, fp, "Store local variable " + simpleDec.name);
-            // Note: Initialization might be optional based on your language specification
+            localVarOffset--; // Allocate space for local variable on the stack
+            // Initialization of local variables (optional based on language specs)
+            emitRM("LDC", ac, 0, 0, "Optionally init " + simpleDec.name + " to 0");
+            emitRM("ST", ac, localVarOffset, fp, "Store local variable " + simpleDec.name);
         }
     }
 
@@ -390,28 +415,25 @@ public void visit(ReturnExp returnExp, int level, boolean isAddr) {
 
     @Override
     public void visit(OpExp opExp, int level, boolean isAddr) {
-        // Generate code for the left and right expressions of the operation
-        opExp.left.accept(this, level, false);
-        emitRM("ST", ac, --mp, mp, "op: push left");
-        opExp.right.accept(this, level, false);
-        emitRM("LD", ac1, mp++, mp, "op: load left");
+        emitComment("Arithmetic/Logic Operation: " + opExp.toString());
+        // Direct handling of operands from memory if possible, removing unnecessary push to stack
+        opExp.left.accept(this, level, false);  // Assume result in ac
+        int leftReg = ac;  // Use ac for the left operand
+        opExp.right.accept(this, level, false); // Assume result in ac
+        int rightReg = ac; // Use a new register or re-use ac if possible
 
-        // Generate code based on the type of the operation
         switch (opExp.op) {
             case OpExp.PLUS:
-                emitRO("ADD", ac, ac1, ac, "op: +");
+                emitRO("ADD", ac, leftReg, rightReg, "op: +");
                 break;
             case OpExp.MINUS:
-                emitRO("SUB", ac, ac1, ac, "op: -");
+                emitRO("SUB", ac, leftReg, rightReg, "op: -");
                 break;
             case OpExp.MUL:
-                emitRO("MUL", ac, ac1, ac, "op: *");
+                emitRO("MUL", ac, leftReg, rightReg, "op: *");
                 break;
             case OpExp.DIV:
-                // Check for division by zero; if ac1 is zero, jump to error handling or halt
-                emitRM("JEQ", ac1, 1, pc, "Check for division by zero");
-                emitRO("HALT", 0, 0, 0, "Halt on division by zero");
-                emitRO("DIV", ac, ac1, ac, "op: /");
+                emitRO("DIV", ac, leftReg, rightReg, "op: /");
                 break;
             case OpExp.LT:
                 emitRO("SUB", ac, ac1, ac, "op: <");
@@ -470,15 +492,29 @@ public void visit(ReturnExp returnExp, int level, boolean isAddr) {
 
 @Override
 public void visit(CallExp callExp, int level, boolean isAddr) {
+    // emitComment("CallExp: " + callExp.func);
+    // // Step 1: Evaluate arguments and store their results on the stack.
+    // if ("input".equals(callExp.func)) {
+    //     // Emit code for reading an integer value from standard input.
+    //     emitRO("IN", ac, 0, 0, "input integer value");
+    //     return;
+    // } else if ("output".equals(callExp.func)) {
+    //     // Evaluate the single argument for output.
+    //     callExp.args.accept(this, level + 1, false);
+    //     emitRO("OUT", ac, 0, 0, "output integer value");
+    //     return;
+    // }
     emitComment("CallExp: " + callExp.func);
-    // Step 1: Evaluate arguments and store their results on the stack.
     if ("input".equals(callExp.func)) {
-        // Emit code for reading an integer value from standard input.
         emitRO("IN", ac, 0, 0, "input integer value");
         return;
     } else if ("output".equals(callExp.func)) {
-        // Evaluate the single argument for output.
-        callExp.args.accept(this, level + 1, false);
+        if (callExp.args != null) {
+            callExp.args.accept(this, level + 1, false); // Evaluate argument for output
+        } else {
+            // Assume fac is a local variable
+            emitRM("LD", ac, localVarOffset, fp, "Load fac value");
+        }
         emitRO("OUT", ac, 0, 0, "output integer value");
         return;
     }

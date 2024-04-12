@@ -51,7 +51,6 @@ class Main {
         }
     }
 
-
     static void generateAndWriteAST(Absyn result, String baseFileName) {
         if (SHOW_TREE) {
             AbsynVisitor visitor = new ShowTreeVisitor();

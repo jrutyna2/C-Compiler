@@ -4,7 +4,7 @@
   0:     LD  6,0(0) 	load gp with maxaddress
   1:    LDA  5,0(6) 	copy to gp to fp
   2:     ST  0,0(0) 	clear location 0
-* Jump around i/o routines here
+* End of standard prelude.
 * code for input routine
   4:     ST  0,-1(5) 	store return
   5:     IN  0,0,0 	input
@@ -14,73 +14,72 @@
   8:     LD  0,-2(5) 	load output value
   9:    OUT  0,0,0 	output
  10:     LD  7,-1(5) 	return to caller
-  3:    LDA  7,7(7) 	jump around i/o code
-* End of standard prelude.
+  3:    LDA  7,7(7) 	Jump around I/O routines to the start of the main program
+* C- compilation to TM code
 * Start of main function
 * Begin compound statement
 * Push new frame or scope marker
 * Variable declarations in compound statement
 * Local variable: fac
- 11:    LDC  0,0(0) 	Optionally init fac to 0
- 12:     ST  0,-1(5) 	Store local variable fac
 * Local variable: x
- 13:    LDC  0,0(0) 	Optionally init x to 0
- 14:     ST  0,-2(5) 	Store local variable x
 * Statements/Expressions in compound statement
 * CallExp: output
 * Variable Expression: fac
- 15:     LD  0,-2(5) 	Load value of fac
- 16:    OUT  0,0,0 	output integer value
+ 11:     LD  0,-2(5) 	Load value of fac
+ 12:    OUT  0,0,0 	output integer value
 * start of while loop
-* Arithmetic/Logic Operation: (x > 1)
 * Variable Expression: x
- 17:     LD  0,-3(5) 	Load value of x
- 18:    LDC  0,1(0) 	load const
- 19:    SUB  0,1,0 	op: >
- 20:    JGT  0,2(7) 	branch if true
- 21:    LDC  0,0(0) 	false case
- 22:    LDA  7,1(7) 	unconditional jump
- 23:    LDC  0,1(0) 	true case
+ 13:     LD  0,-3(5) 	Load value of x
+ 14:     ST  0,0(0) 	op: push left
+ 15:    LDC  0,1(0) 	load const
+ 16:     LD  1,0(1) 	op: load left
+ 17:    SUB  0,1,0 	op: >
+ 18:    JGT  0,2(7) 	branch if true
+ 19:    LDC  0,0(0) 	false case
+ 20:    LDA  7,1(7) 	unconditional jump
+ 21:    LDC  0,1(0) 	true case
 * Begin compound statement
 * Push new frame or scope marker
 * Variable declarations in compound statement
 * Statements/Expressions in compound statement
-* Arithmetic/Logic Operation: (x - 1)
 * Variable Expression: x
- 25:     LD  0,-4(5) 	Load value of x
- 26:    LDC  0,1(0) 	load const
- 27:    SUB  0,0,0 	op: -
+ 23:     LD  0,-4(5) 	Load value of x
+ 24:     ST  0,0(0) 	op: push left
+ 25:    LDC  0,1(0) 	load const
+ 26:     LD  1,0(1) 	op: load left
+ 27:    SUB  0,1,0 	op: -
 * Variable Expression: x
  28:    LDA  0,-6(5) 	Load address of x
  29:     ST  0,-6(5) 	Assign: store value
-* Arithmetic/Logic Operation: (fac * x)
 * Variable Expression: fac
  30:     LD  0,-7(5) 	Load value of fac
+ 31:     ST  0,0(0) 	op: push left
 * Variable Expression: x
- 31:     LD  0,-8(5) 	Load value of x
- 32:    MUL  0,0,0 	op: *
+ 32:     LD  0,-8(5) 	Load value of x
+ 33:     LD  1,0(1) 	op: load left
+ 34:    MUL  0,1,0 	op: *
 * Variable Expression: fac
- 33:    LDA  0,-10(5) 	Load address of fac
- 34:     ST  0,-10(5) 	Assign: store value
+ 35:    LDA  0,-10(5) 	Load address of fac
+ 36:     ST  0,-10(5) 	Assign: store value
 * Pop frame or scope marker
 * End compound statement
- 35:    LDA  7,-20(7) 	jump back to the start of the loop
- 24:    JEQ  0,11(7) 	Jump to end of loop if condition is false
+ 37:    LDA  7,-26(7) 	jump back to the start of the loop
+ 22:    JEQ  0,15(7) 	Jump to end of loop if condition is false
 * end of while loop
- 36:    LDC  0,1(0) 	load const
+ 38:    LDC  0,1(0) 	load const
 * Variable Expression: fac
- 37:    LDA  0,-12(5) 	Load address of fac
- 38:     ST  0,-12(5) 	Assign: store value
+ 39:    LDA  0,-12(5) 	Load address of fac
+ 40:     ST  0,-12(5) 	Assign: store value
 * CallExp: input
- 39:     IN  0,0,0 	input integer value
+ 41:     IN  0,0,0 	input integer value
 * Variable Expression: x
- 40:    LDA  0,-14(5) 	Load address of x
- 41:     ST  0,-14(5) 	Assign: store value
+ 42:    LDA  0,-14(5) 	Load address of x
+ 43:     ST  0,-14(5) 	Assign: store value
 * Pop frame or scope marker
 * End compound statement
 * End of function: main
- 42:   HALT  0,0,0 	End of program execution
- 43:   HALT  0,0,0 	End of program execution
+ 44:   HALT  0,0,0 	End of program execution
+ 45:   HALT  0,0,0 	End of program execution
 * End of execution.
- 44:   HALT  0,0,0 	
+ 46:   HALT  0,0,0 	
 
