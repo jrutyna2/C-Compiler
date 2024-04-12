@@ -1,16 +1,12 @@
-Scope level: 4
+Scope level: 0
     output: void
     input: int
     main: void
 
-Scope level: 3
-
-Scope level: 2
+Scope level: 1
     x: int
     fac: int
 
-Scope level: 1
-
-Scope level: 0
+Scope level: 2
 
 

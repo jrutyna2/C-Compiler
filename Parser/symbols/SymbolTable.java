@@ -143,22 +143,24 @@ private String getIndent(int level) {
         }
         System.out.println("\n");
     }
-public String toStringRepresentation() {
-    StringBuilder sb = new StringBuilder();
-    int scopeLevel = allScopes.size() - 1; // Start from the highest level
-    for (int i = allScopes.size() - 1; i >= 0; i--) { // Reverse iteration
-        HashMap<String, NodeType> scope = allScopes.get(i);
-        sb.append("Scope level: ").append(scopeLevel--).append("\n");
-        for (Map.Entry<String, NodeType> entry : scope.entrySet()) {
-            String symbol = entry.getKey();
-            NodeType nodeType = entry.getValue();
-            String typeString = mapDecToSimpleType(nodeType.dec);
-            sb.append("    ").append(symbol).append(": ").append(typeString).append("\n");
+
+    public String toStringRepresentation() {
+        StringBuilder sb = new StringBuilder();
+        // Iterate from the end of the list to the beginning
+        int scopeLevel = 0;  // Start counting scope levels from 0
+        for (int i = allScopes.size() - 1; i >= 0; i--) {
+            HashMap<String, NodeType> scope = allScopes.get(i);
+            sb.append("Scope level: ").append(scopeLevel++).append("\n"); // Increment scopeLevel after appending
+            for (Map.Entry<String, NodeType> entry : scope.entrySet()) {
+                String symbol = entry.getKey();
+                NodeType nodeType = entry.getValue();
+                String typeString = mapDecToSimpleType(nodeType.dec);
+                sb.append("    ").append(symbol).append(": ").append(typeString).append("\n");
+            }
+            sb.append("\n");
         }
-        sb.append("\n");
+        return sb.toString();
     }
-    return sb.toString();
-}
 
     public String mapDecToSimpleType(Dec dec) {
         // Handling simple variable declarations

@@ -106,6 +106,7 @@ public class CodeGenerator implements AbsynVisitor {
             dec.accept(this, level + 1, isAddr);
         }
     }
+
 private void emitHalt() {
     System.out.println("HALT emitted at location: " + emitLoc);  // Debugging line
     emitRO("HALT", 0, 0, 0, "End of program execution");

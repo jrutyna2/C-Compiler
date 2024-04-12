@@ -15,6 +15,7 @@ public class SemanticAnalyzer implements AbsynVisitor {
     private NameTy boolTy = new NameTy(-1, -1, NameTy.BOOL);
     private NameTy intTy = new NameTy(-1, -1, NameTy.INT);
     private boolean isInGlobalScope = true;
+    private boolean skipCompound = false;
     
     public SemanticAnalyzer() {
         symbolTable = new SymbolTable(builder);
@@ -57,7 +58,7 @@ public class SemanticAnalyzer implements AbsynVisitor {
 @Override
 public void visit(Program program, int level, boolean isAddr) {
     // 1. Explicitly enter the global scope at the start
-    symbolTable.enterScope(level, null, false); // level is likely 0 here for global
+    symbolTable.enterScope(level, null, false); // level is 0 here for global
 
     // 2. Insert predefined global functions
     // Assuming input function returns int and takes no parameters
@@ -131,6 +132,7 @@ public void visit(Program program, int level, boolean isAddr) {
             // Do not increment the level here since we are not inside the function's body yet.
             if (global) isInGlobalScope = false;            
             symbolTable.enterScope(level, currentFunctionName, false);
+            skipCompound = true;
         }
 
         // Visit parameters, if any
@@ -148,6 +150,7 @@ public void visit(Program program, int level, boolean isAddr) {
             // Exiting the function's scope after processing its body and parameters
             if (global) isInGlobalScope = true;            
             symbolTable.exitScope(level, true, false, currentFunctionName);
+            skipCompound = false;
         }        
 
         currentFunctionContext = null;
@@ -234,32 +237,68 @@ public void visit(Program program, int level, boolean isAddr) {
         // 2. NilExp may not have any associated actions other than valid context checks.
     }
 
+    // @Override
+    // public void visit(VarDecList varDecList, int level, boolean isAddr) {
+    //     while (varDecList != null) {
+    //         if (varDecList.head != null) {
+    //             // indent(level);
+    //             // appendLine("Visiting VarDecList");
+    //             varDecList.head.accept(this, level, isAddr);
+    //         }
+    //         varDecList = varDecList.tail;
+    //     }
+    // }
+
     @Override
     public void visit(VarDecList varDecList, int level, boolean isAddr) {
-        while (varDecList != null) {
-            if (varDecList.head != null) {
-                // indent(level);
-                // appendLine("Visiting VarDecList");
-                varDecList.head.accept(this, level, isAddr);
-            }
+        // Initialize a stack to hold the variable declarations
+        Deque<VarDec> stack = new ArrayDeque<>();
+        // Traverse the VarDecList and push each declaration onto the stack
+        while (varDecList != null && varDecList.head != null) {
+            stack.push(varDecList.head);
             varDecList = varDecList.tail;
+        }
+        // Pop each declaration off the stack and visit it, effectively in reverse order
+        while (!stack.isEmpty()) {
+            VarDec varDec = stack.pop();
+            varDec.accept(this, level, isAddr);
         }
     }
 
     @Override
     public void visit(ExpList stmtList, int level, boolean isAddr) {
-        while (stmtList != null) {
+        // Initialize a stack to hold the expressions
+        Deque<Exp> stack = new ArrayDeque<>();
+        // Traverse the ExpList and push each expression onto the stack
+        while (stmtList != null && stmtList.head != null) {
             if (!(stmtList.head instanceof NilExp)) {
-                stmtList.head.accept(this, level + 1, isAddr);
+                stack.push(stmtList.head);
             }
             stmtList = stmtList.tail;
         }
+        // Pop each expression off the stack and visit it, effectively in reverse order
+        while (!stack.isEmpty()) {
+            Exp exp = stack.pop();
+            exp.accept(this, level + 1, isAddr);
+        }
     }
+
+    // @Override
+    // public void visit(ExpList stmtList, int level, boolean isAddr) {
+    //     while (stmtList != null) {
+    //         if (!(stmtList.head instanceof NilExp)) {
+    //             stmtList.head.accept(this, level + 1, isAddr);
+    //         }
+    //         stmtList = stmtList.tail;
+    //     }
+    // }
 
     @Override
     public void visit(CompoundExp compoundExp, int level, boolean isAddr) {
         // Enter a new scope for the compound statement
-        symbolTable.enterScope(level, null, true);
+        // boolean temp = skipCompound;
+        // if (temp) skipCompound = false;
+        // else symbolTable.enterScope(level, null, true);
 
         // Visit local declarations if there are any
         if (compoundExp.localDecs != null) {
@@ -284,7 +323,7 @@ public void visit(Program program, int level, boolean isAddr) {
         }
 
         // Exit the scope for the compound statement
-        symbolTable.exitScope(level, false, true, null);
+        // if (!temp) symbolTable.exitScope(level, false, true, null);
     }
 
     @Override
