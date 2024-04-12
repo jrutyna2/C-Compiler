@@ -299,7 +299,7 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
     //     ifExp.test.accept(this, level, false); // Evaluate condition; result in AC
     //     int savedLoc = emitLoc;
     //     emitRM("JEQ", ac, 0, pc, "if: jmp to else part");
-    //     //ifExp.thenpart.accept(this, level, false);
+    //     //ifExp.thenClause.accept(this, level, false);
 
     //     int savedLoc2 = emitLoc;
     //     emitRM("LDA", pc, 0, pc, "jmp to end");
@@ -309,8 +309,8 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
     //     emitLoc = savedLoc;
     //     emitRM("JEQ", ac, currentLoc - emitLoc - 1, pc, "if: jmp to else part (backpatch)");
 
-    //     // if (ifExp.elsepart != null) {
-    //     //     ifExp.elsepart.accept(this, level, false);
+    //     // if (ifExp.elseClause != null) {
+    //     //     ifExp.elseClause.accept(this, level, false);
     //     // }
     // }
 
@@ -319,7 +319,7 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
         ifExp.test.accept(this, level, false); // Evaluate condition; result in AC
         int savedLoc = emitSkip(1); // Skip over the jump instruction initially
 
-        ifExp.thenpart.accept(this, level, false); // Process the "then" part
+        ifExp.thenClause.accept(this, level, false); // Process the "then" part
 
         int savedLoc2 = emitSkip(1); // Skip unconditional jump (for jumping to end after then-part)
         int elsePartLoc = emitLoc;  // Current location is where else part starts
@@ -328,8 +328,8 @@ public void visit(AssignExp assignExp, int level, boolean isAddr) {
         emitRM("JEQ", ac, elsePartLoc - savedLoc - 1, pc, "Jump to else part"); // Backpatch to jump to else
         emitRestore();
 
-        if (ifExp.elsepart != null) {
-            ifExp.elsepart.accept(this, level, false);  // Process the "else" part
+        if (ifExp.elseClause != null) {
+            ifExp.elseClause.accept(this, level, false);  // Process the "else" part
         }
 
         int endLoc = emitLoc; // End location after else part
@@ -554,16 +554,18 @@ public void visit(CallExp callExp, int level, boolean isAddr) {
     @Override
     public void visit(VarExp varExp, int level, boolean isAddr) {
         emitComment("Variable Expression: " + varExp.variable.name);
-
         int offset;
-        int baseReg = fp;  // Default to frame pointer for local variables
-        if (level == 0) { // Global variable
+        int baseReg;
+        // Determine the base register and calculate offset based on the scope level.
+        if (level == 0) { // Global variables
             baseReg = gp;
-            offset = globalOffsets.get(varExp.variable.name);  // You need to maintain this mapping
-        } else { // Local variable
-            offset = calculateLocalOffset(localOffsets.get(varExp.variable.name));  // Adjust for local variable offsets
+            offset = globalVarOffset;  // Direct use of globalVarOffset
+            globalVarOffset--;  // Adjust globalVarOffset assuming each variable takes 1 memory unit.
+        } else {  // Local variables
+            baseReg = fp;
+            offset = localVarOffset;  // Use localVarOffset to manage local variables
+            localVarOffset--;  // Adjust localVarOffset for each local variable declared.
         }
-
         if (isAddr) {
             // If address is requested, load the address (base + offset) into the accumulator
             emitRM("LDA", ac, offset, baseReg, "Load address of " + varExp.variable.name);
