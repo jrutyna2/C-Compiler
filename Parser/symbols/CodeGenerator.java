@@ -118,24 +118,46 @@ public void visit(FunDec funDec, int level, boolean isAddr) {
         int skipLoc = emitSkip(1); // Reserve space to skip over function body
         functionDirectory.put(funDec.funcName, emitSkip(0)); // Record start of actual function body for calls
         emitComment("Processing function: " + funDec.funcName);
+
+        // Function body processing...
+        if (funDec.body != null) {
+            funDec.body.accept(this, level + 1, false);
+        }
+
+        // Backpatch to skip the function body
+        int afterFuncLoc = emitLoc; // Location after function body
+        emitBackup(skipLoc);
+        emitRM("LDA", pc, afterFuncLoc - (skipLoc + 1), pc, "Jump around function body");
+        emitRestore();        
     } else {
-        mainEntry = emitSkip(0); // Start of main function
+        // Special handling for main, where we typically do not jump around
+        mainEntry = emitSkip(0);
         emitComment("Start of main function");
+
+        // Function body processing...
+        if (funDec.body != null) {
+            funDec.body.accept(this, level + 1, false);
+        }
     }
 
-    localVarOffset = 0;
-    if (funDec.params != null) {
-        funDec.params.accept(this, level + 1, false);
-    }
-    if (funDec.body != null) {
-        funDec.body.accept(this, level + 1, false);
-    }
+    // localVarOffset = 0;
+    // if (funDec.params != null) {
+    //     funDec.params.accept(this, level + 1, false);
+    // }
+    // if (funDec.body != null) {
+    //     funDec.body.accept(this, level + 1, false);
+    // }
 
+    // emitComment("End of function: " + funDec.funcName);
+    // if (!funDec.funcName.equals("main")) {
+    //     emitRM("LD", pc, -1, fp, "Return to caller");
+    // } else {
+    //     emitHalt();  // Use the helper method for emitting HALT
+    // }
+    // Emit function return handling
     emitComment("End of function: " + funDec.funcName);
     if (!funDec.funcName.equals("main")) {
         emitRM("LD", pc, -1, fp, "Return to caller");
-    } else {
-        emitHalt();  // Use the helper method for emitting HALT
     }
 }
 

@@ -79,8 +79,6 @@
 * Pop frame or scope marker
 * End compound statement
 * End of function: main
- 42:   HALT  0,0,0 	End of program execution
- 43:   HALT  0,0,0 	End of program execution
 * End of execution.
- 44:   HALT  0,0,0 	
+ 42:   HALT  0,0,0 	
 
